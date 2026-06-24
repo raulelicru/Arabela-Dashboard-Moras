@@ -236,6 +236,9 @@ def tab_indicadores(df: pd.DataFrame):
         if cols.get("visita"):
             st.write(f"**Visita** (`{cols['visita']}`) — value_counts:")
             st.dataframe(df[cols["visita"]].fillna("(vacío)").value_counts().head(20).reset_index())
+        if cols.get("contacto"):
+            st.write(f"**Contacto** (`{cols['contacto']}`) — value_counts:")
+            st.dataframe(df[cols["contacto"]].fillna("(vacío)").value_counts().head(20).reset_index())
 
     total_cuentas = len(df)
     saldo_asignado = df["__saldo__"].sum()
