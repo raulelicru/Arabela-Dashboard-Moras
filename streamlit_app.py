@@ -100,6 +100,24 @@ if is_admin():
 
     st.divider()
 
+# ── Dashboard Indicadores de Mora ─────────────────────────────────────────────
+with st.spinner("Cargando datos de cartera..."):
+    cart_data = get_latest_cartera(sb)
+
+if cart_data:
+    file_bytes, meta = cart_data
+    df = read_excel_safe(io.BytesIO(file_bytes))
+    st.session_state["ind_df"] = df
+    st.session_state["ind_file_name"] = meta["filename"]
+    st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+else:
+    st.session_state.pop("ind_df", None)
+    st.session_state.pop("ind_file_name", None)
+
+_render_indicadores_results()
+
+st.divider()
+
 # ── Dashboard Arabela ────────────────────────────────────────────────────────
 with st.spinner("Cargando datos de domicilios..."):
     dom_data = get_latest_domicilios(sb)
@@ -112,7 +130,6 @@ if dom_data:
         .read_text(encoding="utf-8")
     )
     b64 = base64.b64encode(file_bytes).decode()
-    # Inyectar archivo ANTES del script principal definiendo window._arabela_file
     preload = """<script>
 (function(){
   var b64=%s, fname=%s;
@@ -132,21 +149,3 @@ else:
         else "El administrador aún no ha cargado datos de domicilios."
     )
     st.info(f"📁 {msg}")
-
-st.divider()
-
-# ── Dashboard Indicadores de Mora ─────────────────────────────────────────────
-with st.spinner("Cargando datos de cartera..."):
-    cart_data = get_latest_cartera(sb)
-
-if cart_data:
-    file_bytes, meta = cart_data
-    df = read_excel_safe(io.BytesIO(file_bytes))
-    st.session_state["ind_df"] = df
-    st.session_state["ind_file_name"] = meta["filename"]
-    st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
-else:
-    st.session_state.pop("ind_df", None)
-    st.session_state.pop("ind_file_name", None)
-
-_render_indicadores_results()
