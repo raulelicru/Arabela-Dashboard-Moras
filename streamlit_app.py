@@ -115,14 +115,25 @@ if dom_data:
     inject = """
 <script>
 (function(){
-  try {
-    var b64 = %s;
-    var bc = atob(b64), bn = new Array(bc.length);
-    for (var i = 0; i < bc.length; i++) { bn[i] = bc.charCodeAt(i); }
-    var file = new File([new Uint8Array(bn)], %s,
-      {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    if (typeof processExcelFile === 'function') { processExcelFile(file); }
-  } catch(e) { console.error('Arabela auto-load:', e); }
+  var b64 = %s, fname = %s;
+  function run() {
+    try {
+      var bc = atob(b64), bn = new Uint8Array(bc.length);
+      for (var i = 0; i < bc.length; i++) { bn[i] = bc.charCodeAt(i); }
+      var file = new File([bn], fname,
+        {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      if (typeof processExcelFile === 'function') {
+        processExcelFile(file);
+      } else {
+        setTimeout(run, 200);
+      }
+    } catch(e) { console.error('Arabela auto-load:', e); }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
 })();
 </script>
 """ % (json.dumps(b64), json.dumps(meta["filename"]))
