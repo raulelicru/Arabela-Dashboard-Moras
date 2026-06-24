@@ -112,29 +112,17 @@ if dom_data:
         .read_text(encoding="utf-8")
     )
     b64 = base64.b64encode(file_bytes).decode()
-    inject = """
-<script>
+    # Inyectar archivo ANTES del script principal definiendo window._arabela_file
+    preload = """<script>
 (function(){
-  var b64 = %s, fname = %s;
-  function run() {
-    try {
-      if (typeof processExcelFile !== 'function' || typeof XLSX === 'undefined') {
-        setTimeout(run, 300);
-        return;
-      }
-      var bc = atob(b64), bn = new Uint8Array(bc.length);
-      for (var i = 0; i < bc.length; i++) { bn[i] = bc.charCodeAt(i); }
-      var file = new File([bn], fname,
-        {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-      document.getElementById('progressWrap').classList.add('show');
-      processExcelFile(file);
-    } catch(e) { console.error('Arabela auto-load:', e); }
-  }
-  window.addEventListener('load', run);
+  var b64=%s, fname=%s;
+  var bc=atob(b64), bn=new Uint8Array(bc.length);
+  for(var i=0;i<bc.length;i++){bn[i]=bc.charCodeAt(i);}
+  window._arabela_file=new File([bn],fname,
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 })();
-</script>
-""" % (json.dumps(b64), json.dumps(meta["filename"]))
-    html = html.replace("</body>", inject + "</body>", 1)
+</script>""" % (json.dumps(b64), json.dumps(meta["filename"]))
+    html = html.replace("<body>", "<body>" + preload, 1)
     st.caption(f"📁 Domicilios: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
     components.html(html, height=1400, scrolling=True)
 else:
