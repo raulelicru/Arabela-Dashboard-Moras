@@ -520,12 +520,12 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
       <span class="campaign-badge" id="campaignBadge">—</span>
     </div>
     <div class="tabs" id="tabs">
-      <button class="tab-btn active" data-tab="resumen">Resumen</button>
-      <button class="tab-btn" data-tab="division">Por División</button>
-      <button class="tab-btn" data-tab="estado">Por Estado</button>
-      <button class="tab-btn" data-tab="duplicados">Duplicados</button>
-      <button class="tab-btn" data-tab="tabla">Tabla</button>
-      <button class="tab-btn" data-tab="alertas">Alertas</button>
+      <button class="tab-btn active" data-tab="resumen" style="color:#1a3c6e">Resumen</button>
+      <button class="tab-btn" data-tab="division" style="color:#fff">Por División</button>
+      <button class="tab-btn" data-tab="estado" style="color:#fff">Por Estado</button>
+      <button class="tab-btn" data-tab="duplicados" style="color:#fff">Duplicados</button>
+      <button class="tab-btn" data-tab="tabla" style="color:#fff">Tabla</button>
+      <button class="tab-btn" data-tab="alertas" style="color:#fff">Alertas</button>
     </div>
     <button class="btn btn-accent" id="downloadBtn">⬇ Descargar Reporte</button>
   </nav>
@@ -1089,9 +1089,13 @@ function initDashboard(){
 function setupTabs(){
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b=>{
+        b.classList.remove('active');
+        b.style.color='#fff';
+      });
       document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
       btn.classList.add('active');
+      btn.style.color='#1a3c6e';
       document.getElementById('sec-'+btn.dataset.tab).classList.add('active');
     });
   });
