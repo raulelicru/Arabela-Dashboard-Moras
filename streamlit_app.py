@@ -5,7 +5,7 @@ import pathlib
 import streamlit as st
 import streamlit.components.v1 as components
 
-from indicadores_mora import _banner, _indicadores_uploader, _render_indicadores_results
+from indicadores_mora import _indicadores_uploader, _render_indicadores_results
 
 st.set_page_config(page_title="Arabela Cobranza", layout="wide")
 
@@ -78,5 +78,4 @@ else:
 st.divider()
 
 # ── Dashboard Indicadores de Mora ────────────────────────────────────────────
-_banner("📊", "Indicadores de Mora", "Dashboard de cobranza y recuperación de cartera")
 _render_indicadores_results()

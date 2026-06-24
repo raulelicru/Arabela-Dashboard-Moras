@@ -438,6 +438,6 @@ def _render_indicadores_results():
     st.markdown(INDICADORES_CSS, unsafe_allow_html=True)
     df = st.session_state.get("ind_df")
     if df is None:
-        st.info("Sube el archivo de cartera general arriba para ver los indicadores de mora.")
         return
+    _banner("📊", "Indicadores de Mora", "Dashboard de cobranza y recuperación de cartera")
     tab_indicadores(df)
