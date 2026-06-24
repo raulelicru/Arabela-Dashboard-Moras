@@ -23,11 +23,12 @@
   --surface:#F8FAFC;
   --card:#FFFFFF;
   --border:#E2E8F0;
-  --accent1:#3B82F6;
+  --accent1:#2563eb;
   --accent2:#10B981;
   --accent3:#F59E0B;
   --accent4:#EF4444;
   --accent5:#8B5CF6;
+  --primary:#1a3c6e;
   --text:#1E293B;
   --muted:#94A3B8;
   --label:#475569;
@@ -207,11 +208,11 @@ a{color:inherit;}
 .btn:active{transform:translateY(1px);}
 .btn:disabled{opacity:.4;cursor:not-allowed;}
 .btn-primary{
-  background:linear-gradient(135deg,var(--accent2),#0ea271);
-  color:#06281c;
-  box-shadow:0 10px 26px -10px rgba(16,185,129,.55);
+  background:linear-gradient(135deg,#1a3c6e,#2563eb);
+  color:#fff;
+  box-shadow:0 10px 26px -10px rgba(37,99,235,.45);
 }
-.btn-primary:hover:not(:disabled){box-shadow:0 12px 30px -8px rgba(16,185,129,.65);transform:translateY(-1px);}
+.btn-primary:hover:not(:disabled){box-shadow:0 12px 30px -8px rgba(37,99,235,.6);transform:translateY(-1px);}
 .btn-accent{background:var(--accent2);color:#06281c;}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
 .btn-ghost:hover{border-color:var(--accent1);}
@@ -266,22 +267,24 @@ a{color:inherit;}
 
 nav.topbar{
   position:sticky;top:0;z-index:50;
-  background:rgba(255,255,255,.85);
-  backdrop-filter:blur(10px);
-  border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,#1a3c6e,#2563eb);
+  border-bottom:1px solid #1a3c6e;
   display:flex;align-items:center;justify-content:space-between;
   padding:12px 24px;gap:16px;flex-wrap:wrap;
 }
+.brand-title{color:#fff !important;}
+.campaign-badge-wrap{color:rgba(255,255,255,.85);}
 .brand{display:flex;align-items:center;gap:10px;}
 .brand-logo{height:32px;width:32px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;}
 .brand-title{font-weight:700;font-size:16px;}
 .campaign-badge{
-  background:var(--accent1);
+  background:rgba(255,255,255,.2);
   color:#fff;
   font-size:11px;
   font-weight:600;
   padding:3px 9px;
   border-radius:20px;
+  border:1px solid rgba(255,255,255,.35);
 }
 .tabs{display:flex;gap:4px;overflow-x:auto;}
 .tab-btn{

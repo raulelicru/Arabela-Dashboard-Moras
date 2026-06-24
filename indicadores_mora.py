@@ -7,9 +7,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 COLORS = {
-    "primary": "#1a3c6e", "accent": "#93c5fd", "success": "#86efac",
-    "warning": "#fde68a", "danger": "#fca5a5", "purple": "#c4b5fd",
-    "teal": "#67e8f9", "orange": "#fdba74", "muted": "#9ca3af",
+    "primary": "#1a3c6e", "accent": "#3b82f6", "success": "#10b981",
+    "warning": "#f59e0b", "danger": "#ef4444", "purple": "#8b5cf6",
+    "teal": "#06b6d4", "orange": "#f97316", "muted": "#94a3b8",
     "bg": "#ffffff", "grid": "#e5e7eb", "text": "#374151",
 }
 PLOTLY_LAYOUT = dict(
@@ -361,17 +361,25 @@ def tab_indicadores(df: pd.DataFrame):
         _banner("🚗", "Gestión de Cobranza", "Resultado de visitas, llamadas y dictaminaciones")
         c1, c2 = st.columns(2)
         with c1:
-            counts = df["__estatus__"].value_counts()
-            fig = px.pie(values=counts.values, names=counts.index, hole=0.45,
-                         color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig.update_layout(**PLOTLY_LAYOUT, title="Distribución de Estatus")
+            counts = df["__estatus__"].value_counts().sort_values()
+            fig = go.Figure(go.Bar(
+                x=counts.values, y=counts.index, orientation="h",
+                marker_color=COLORS["accent"],
+                text=[f"{v:,}" for v in counts.values], textposition="outside",
+            ))
+            fig.update_layout(**PLOTLY_LAYOUT, title="Distribución de Estatus",
+                              xaxis=dict(**_AXIS_DEFAULTS), yaxis=dict(**_AXIS_DEFAULTS))
             _chart_card(fig)
         with c2:
             if cols.get("dictaminacion"):
-                counts = df[cols["dictaminacion"]].astype(str).value_counts().head(10)
-                fig = px.pie(values=counts.values, names=counts.index, hole=0.45,
-                             color_discrete_sequence=px.colors.qualitative.Set3)
-                fig.update_layout(**PLOTLY_LAYOUT, title="Dictaminación (Top 10)")
+                counts = df[cols["dictaminacion"]].astype(str).value_counts().head(10).sort_values()
+                fig = go.Figure(go.Bar(
+                    x=counts.values, y=counts.index, orientation="h",
+                    marker_color=COLORS["teal"],
+                    text=[f"{v:,}" for v in counts.values], textposition="outside",
+                ))
+                fig.update_layout(**PLOTLY_LAYOUT, title="Dictaminación (Top 10)",
+                                  xaxis=dict(**_AXIS_DEFAULTS), yaxis=dict(**_AXIS_DEFAULTS))
                 _chart_card(fig)
             else:
                 st.info("Configura la columna de Dictaminación para ver este gráfico.")
