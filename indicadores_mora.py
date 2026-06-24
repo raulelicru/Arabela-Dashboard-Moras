@@ -204,7 +204,7 @@ def _derive_estatus(df: pd.DataFrame, cols: dict) -> pd.Series:
         "Recuperada",
         "Promesa de Pago",
         "Pago Cobrador/Porteador",
-        "Gestionada - Visita",
+        "Gestionada",
         "Gestionada - Llamada",
     ]
     return pd.Series(np.select(conditions, choices, default="Sin Gestión"), index=df.index)
