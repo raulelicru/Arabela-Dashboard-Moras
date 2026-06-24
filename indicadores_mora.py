@@ -298,7 +298,11 @@ def tab_indicadores(df: pd.DataFrame):
             if g is None:
                 st.info("Configura la columna de Campaña para ver este gráfico.")
             else:
-                g = g.sort_values("campania").tail(3)
+                g = g.sort_values("campania")
+                try:
+                    g = g[pd.to_numeric(g["campania"], errors="coerce").between(9, 12)]
+                except Exception:
+                    g = g.tail(4)
                 fig = go.Figure(go.Scatter(
                     x=g["campania"].astype(str), y=g["PctRec"], mode="lines+markers",
                     line=dict(color=COLORS["primary"], width=3), marker=dict(size=8),
