@@ -459,11 +459,17 @@ def tab_indicadores(df: pd.DataFrame):
         if g is None:
             st.info("Configura la columna de Zona para ver este gráfico.")
         else:
-            g = g.sort_values("PctRec")
-            fig = go.Figure(go.Bar(x=g["PctRec"], y=g["zona"], orientation="h",
-                                    marker_color=[_color_pct(v) for v in g["PctRec"]]))
+            g = g.sort_values("PctRec", ascending=True)
+            fig = go.Figure(go.Bar(
+                x=g["PctRec"], y=g["zona"].astype(str), orientation="h",
+                marker_color=[_color_pct(v) for v in g["PctRec"]],
+                text=g["PctRec"].map(lambda v: f"{v:.1f}%"), textposition="outside",
+            ))
             fig.update_layout(**PLOTLY_LAYOUT, title="% Recuperación por Zona",
-                               xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"), yaxis=dict(**_AXIS_DEFAULTS))
+                               xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación",
+                                          range=[0, max(g["PctRec"].max()*1.3, 1)]),
+                               yaxis=dict(**_AXIS_DEFAULTS, type="category"),
+                               height=max(300, len(g)*22))
             _chart_card(fig)
 
     with sub_tabs[4]:
