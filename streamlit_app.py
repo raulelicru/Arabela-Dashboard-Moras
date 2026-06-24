@@ -118,22 +118,19 @@ if dom_data:
   var b64 = %s, fname = %s;
   function run() {
     try {
+      if (typeof processExcelFile !== 'function' || typeof XLSX === 'undefined') {
+        setTimeout(run, 300);
+        return;
+      }
       var bc = atob(b64), bn = new Uint8Array(bc.length);
       for (var i = 0; i < bc.length; i++) { bn[i] = bc.charCodeAt(i); }
       var file = new File([bn], fname,
         {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-      if (typeof processExcelFile === 'function') {
-        processExcelFile(file);
-      } else {
-        setTimeout(run, 200);
-      }
+      document.getElementById('progressWrap').classList.add('show');
+      processExcelFile(file);
     } catch(e) { console.error('Arabela auto-load:', e); }
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run);
-  } else {
-    run();
-  }
+  window.addEventListener('load', run);
 })();
 </script>
 """ % (json.dumps(b64), json.dumps(meta["filename"]))
