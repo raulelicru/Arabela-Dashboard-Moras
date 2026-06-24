@@ -15,7 +15,8 @@ hcol1, hcol2 = st.columns([1, 11])
 with hcol1:
     st.image(str(logo_path), width=64)
 with hcol2:
-    st.markdown("**CONSULTORES CRZ**  \nArabela Cobranza — Análisis de Domicilios e Indicadores de Mora")
+    st.caption("CONSULTORES CRZ")
+    st.header("Arabela Cobranza — Análisis de Domicilios e Indicadores de Mora")
 
 st.divider()
 
