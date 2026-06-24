@@ -230,6 +230,9 @@ def tab_indicadores(df: pd.DataFrame):
         if cols.get("pago"):
             st.write(f"**Pago** (`{cols['pago']}`) — muestra:", df[cols["pago"]].dropna().head(10).tolist())
             st.write(f"**Pago sum numérico:**", _to_num(df[cols["pago"]]).sum())
+            st.write(f"**__pago__ en df:**", "__pago__" in df.columns)
+            if "__pago__" in df.columns:
+                st.write(f"**__pago__ sum:**", df["__pago__"].sum())
         if cols.get("visita"):
             st.write(f"**Visita** (`{cols['visita']}`) — value_counts:")
             st.dataframe(df[cols["visita"]].fillna("(vacío)").value_counts().head(20).reset_index())
@@ -244,9 +247,11 @@ def tab_indicadores(df: pd.DataFrame):
 
     visita_col = cols.get("visita")
     if visita_col:
-        _EMPTY_VALS = {"", "nan", "none", "0", "nat", "0.0"}
-        _vis = df[visita_col].astype(str).str.strip().str.lower()
-        visitas_realizadas = int((~_vis.isin(_EMPTY_VALS)).sum())
+        _vis_raw = df[visita_col]
+        _vis_str = _vis_raw.fillna("").astype(str).str.strip()
+        visitas_realizadas = int(
+            (_vis_raw.notna() & (_vis_str != "") & (_vis_str.str.lower() != "nan")).sum()
+        )
     else:
         visitas_realizadas = 0
     pct_visitas = (visitas_realizadas / total_cuentas * 100) if total_cuentas else 0.0
