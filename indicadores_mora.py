@@ -41,21 +41,28 @@ def fmt_currency(val: float) -> str:
     return f"${val:,.2f}"
 
 
-def _find_col(df: pd.DataFrame, candidates: list) -> str | None:
+_BOOL_COL_PATTERNS = ("si/no", "si_no", "sino", " si ", " no ", "s/n")
+
+
+def _find_col(df: pd.DataFrame, candidates: list, skip_bool: bool = False) -> str | None:
     lower_cols = {c.lower(): c for c in df.columns}
+
+    def _is_bool_col(key: str) -> bool:
+        return skip_bool and any(p in key for p in _BOOL_COL_PATTERNS)
+
     # 1. Exact match
     for cand in candidates:
-        if cand in lower_cols:
+        if cand in lower_cols and not _is_bool_col(cand):
             return lower_cols[cand]
     # 2. Starts-with match
     for cand in candidates:
         for key, real in lower_cols.items():
-            if key.startswith(cand):
+            if key.startswith(cand) and not _is_bool_col(key):
                 return real
     # 3. Substring match
     for cand in candidates:
         for key, real in lower_cols.items():
-            if cand in key:
+            if cand in key and not _is_bool_col(key):
                 return real
     return None
 
@@ -108,7 +115,7 @@ COLUMN_CANDIDATES = {
     "no_dama": ["nodama", "dama"],
     "segmento": ["morosidad", "mora", "segmento"],
     "saldo": ["saldodama", "saldo"],
-    "pago": ["pago"],
+    "pago": ["montopago", "pagomonto", "importe pago", "monto cobrado", "cobrado", "recuperado", "pago"],
     "visita": ["vistas gestor", "visitas gestor", "gestion", "visita"],
     "promesa": ["dictaminacion de llamada", "dictam llamada", "dictaminacion llamada"],
     "contacto": ["estatus de llamada", "estatus llamada", "estatusllamada"],
@@ -135,7 +142,10 @@ NINGUNA = "(ninguna)"
 
 
 def _detect_columns(df: pd.DataFrame) -> dict:
-    return {key: _find_col(df, cands) for key, cands in COLUMN_CANDIDATES.items()}
+    result = {}
+    for key, cands in COLUMN_CANDIDATES.items():
+        result[key] = _find_col(df, cands, skip_bool=(key == "pago"))
+    return result
 
 
 def _column_picker(df: pd.DataFrame, detected: dict) -> dict:
