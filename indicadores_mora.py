@@ -227,11 +227,12 @@ def tab_indicadores(df: pd.DataFrame):
 
     with st.expander("🔍 Debug columnas detectadas", expanded=False):
         st.write("**Columnas mapeadas:**", cols)
-        st.write("**Todas las columnas del Excel:**", list(df.columns))
         if cols.get("pago"):
-            st.write(f"**Valores muestra columna pago** (`{cols['pago']}`):", df[cols["pago"]].dropna().head(10).tolist())
-        if cols.get("saldo"):
-            st.write(f"**Saldo sum** (`{cols['saldo']}`):", df["__saldo__"].sum())
+            st.write(f"**Pago** (`{cols['pago']}`) — muestra:", df[cols["pago"]].dropna().head(10).tolist())
+            st.write(f"**Pago sum numérico:**", _to_num(df[cols["pago"]]).sum())
+        if cols.get("visita"):
+            st.write(f"**Visita** (`{cols['visita']}`) — value_counts:")
+            st.dataframe(df[cols["visita"]].fillna("(vacío)").value_counts().head(20).reset_index())
 
     total_cuentas = len(df)
     saldo_asignado = df["__saldo__"].sum()
