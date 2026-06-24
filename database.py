@@ -1,9 +1,19 @@
 """Operaciones de base de datos y almacenamiento en Supabase."""
+import re
+import unicodedata
 import uuid
 import streamlit as st
 from supabase import Client
 
 BUCKET = "uploads"
+
+
+def _safe_filename(name: str) -> str:
+    """Elimina acentos, espacios y caracteres especiales para rutas de Storage."""
+    name = unicodedata.normalize("NFD", name)
+    name = name.encode("ascii", "ignore").decode("ascii")
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+    return name
 
 
 # ── Storage ──────────────────────────────────────────────────────────────────
@@ -38,7 +48,8 @@ def _storage_download(sb: Client, path: str) -> bytes | None:
 
 def _upload_file(sb: Client, table: str, prefix: str, user_id: str, uploaded_file) -> dict | None:
     upload_id = str(uuid.uuid4())
-    path = f"{prefix}/{upload_id}/{uploaded_file.name}"
+    safe_name = _safe_filename(uploaded_file.name)
+    path = f"{prefix}/{upload_id}/{safe_name}"
     file_bytes = uploaded_file.getvalue()
 
     if not _storage_upload(sb, path, file_bytes):
