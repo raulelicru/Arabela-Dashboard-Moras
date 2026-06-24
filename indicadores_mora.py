@@ -43,6 +43,16 @@ def fmt_currency(val: float) -> str:
 
 def _find_col(df: pd.DataFrame, candidates: list) -> str | None:
     lower_cols = {c.lower(): c for c in df.columns}
+    # 1. Exact match
+    for cand in candidates:
+        if cand in lower_cols:
+            return lower_cols[cand]
+    # 2. Starts-with match
+    for cand in candidates:
+        for key, real in lower_cols.items():
+            if key.startswith(cand):
+                return real
+    # 3. Substring match
     for cand in candidates:
         for key, real in lower_cols.items():
             if cand in key:
@@ -90,7 +100,7 @@ def _banner(icon: str, title: str, subtitle: str):
 
 
 COLUMN_CANDIDATES = {
-    "campania": ["anio", "aniocampania", "campaña de trabajo", "campaña"],
+    "campania": ["campaniasaldo", "campaña de trab", "campania", "campaña", "anio"],
     "division": ["division", "división"],
     "ruta": ["ruta"],
     "zona": ["zona"],
@@ -98,8 +108,8 @@ COLUMN_CANDIDATES = {
     "no_dama": ["nodama", "dama"],
     "segmento": ["morosidad", "mora", "segmento"],
     "saldo": ["saldodama", "saldo"],
-    "pago": ["pago aplicado", "pago_aplicado", "pago "],
-    "visita": ["visitas gestor", "visita"],
+    "pago": ["pago"],
+    "visita": ["gestion", "visitas gestor", "visita"],
     "dictaminacion": ["dictaminacion", "dictam"],
     "situacion": ["descsituacion", "situacion", "estatus"],
 }
