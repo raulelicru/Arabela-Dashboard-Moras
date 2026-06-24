@@ -300,7 +300,7 @@ def tab_indicadores(df: pd.DataFrame):
             else:
                 g = g.sort_values("campania")
                 try:
-                    g = g[pd.to_numeric(g["campania"], errors="coerce").between(9, 12)]
+                    g = g[pd.to_numeric(g["campania"], errors="coerce").between(7, 13)]
                 except Exception:
                     g = g.tail(4)
                 fig = go.Figure(go.Scatter(
