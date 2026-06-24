@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 
 from indicadores_mora import _indicadores_uploader, _render_indicadores_results
 
-st.set_page_config(page_title="Arabela Cobranza", layout="wide")
+st.set_page_config(page_title="Dashboard Cobranza Mora Arabela", layout="wide")
 
 # ── Header con logo ─────────────────────────────────────────────────────────
 logo_path = pathlib.Path(__file__).parent / "logo_crz.png"
@@ -16,7 +16,7 @@ with hcol1:
     st.image(str(logo_path), width=64)
 with hcol2:
     st.caption("CONSULTORES CRZ")
-    st.header("Arabela Cobranza — Análisis de Domicilios e Indicadores de Mora")
+    st.header("Dashboard Cobranza Mora Arabela")
 
 st.divider()
 
