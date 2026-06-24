@@ -242,7 +242,15 @@ def tab_indicadores(df: pd.DataFrame):
     pct_cuentas_rec = (cuentas_recuperadas / total_cuentas * 100) if total_cuentas else 0.0
 
     visita_col = cols.get("visita")
-    visitas_realizadas = int((_to_num(df[visita_col]) > 0).sum()) if visita_col else 0
+    if visita_col:
+        _vnum = _to_num(df[visita_col])
+        if _vnum.sum() > 0:
+            visitas_realizadas = int((_vnum > 0).sum())
+        else:
+            _vtxt = df[visita_col].astype(str).str.strip().str.lower()
+            visitas_realizadas = int(_vtxt.replace({"nan": "", "none": "", "0": ""}).ne("").sum())
+    else:
+        visitas_realizadas = 0
     pct_visitas = (visitas_realizadas / total_cuentas * 100) if total_cuentas else 0.0
 
     promesa_col = cols.get("promesa") or cols.get("dictaminacion")
