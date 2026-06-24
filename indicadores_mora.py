@@ -247,7 +247,9 @@ def tab_indicadores(df: pd.DataFrame):
                     text=[f"{v:.1f}%" for v in g["PctRec"]], textposition="outside",
                 ))
                 fig.update_layout(**PLOTLY_LAYOUT, title="% Recuperación por División",
-                                   xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"), yaxis=dict(**_AXIS_DEFAULTS))
+                                   xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación",
+                                              range=[0, max(g["PctRec"].max() * 1.3, 5)]),
+                                   yaxis=dict(**_AXIS_DEFAULTS))
                 _chart_card(fig)
         with c2:
             g = _grp(df, "campania", cols)
@@ -256,11 +258,11 @@ def tab_indicadores(df: pd.DataFrame):
             else:
                 g = g.sort_values("campania")
                 fig = go.Figure(go.Scatter(
-                    x=g["campania"], y=g["PctRec"], mode="lines+markers",
+                    x=g["campania"].astype(str), y=g["PctRec"], mode="lines+markers",
                     line=dict(color=COLORS["primary"], width=3), marker=dict(size=8),
                 ))
                 fig.update_layout(**PLOTLY_LAYOUT, title="Tendencia de % Recuperación por Campaña",
-                                   xaxis=dict(**_AXIS_DEFAULTS, title="Campaña"),
+                                   xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
                                    yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"))
                 _chart_card(fig)
 
