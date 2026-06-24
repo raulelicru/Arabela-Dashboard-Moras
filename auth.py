@@ -92,6 +92,13 @@ def require_auth(sb: Client):
         st.stop()
 
 
+_USERS = {
+    "Raul Elizalde":  "raulelicru@gmail.com",
+    "Ángeles Cruz":   "angeleselicru@gmail.com",
+    "Claudia Vallejo": "claudia.vallejo@cgconsultoresjuridicos.mx",
+}
+
+
 def _show_login_page(sb: Client):
     logo_path = pathlib.Path(__file__).parent / "logo_crz.png"
 
@@ -100,20 +107,20 @@ def _show_login_page(sb: Client):
         if logo_path.exists():
             st.image(str(logo_path), width=80)
         st.markdown("#### Dashboard Cobranza Mora Arabela")
-        st.caption("CONSULTORES CRZ — Ingresa con tu cuenta")
+        st.caption("CONSULTORES CRZ — Selecciona tu nombre e ingresa tu contraseña")
         st.divider()
 
         with st.form("login_form"):
-            email = st.text_input("Correo electrónico", placeholder="usuario@empresa.com")
+            name = st.selectbox("¿Quién eres?", list(_USERS.keys()))
             password = st.text_input("Contraseña", type="password", placeholder="••••••••")
             submitted = st.form_submit_button(
                 "Iniciar sesión", use_container_width=True, type="primary"
             )
 
         if submitted:
-            if not email or not password:
-                st.warning("Ingresa tu correo y contraseña.")
+            if not password:
+                st.warning("Ingresa tu contraseña.")
             else:
                 with st.spinner("Verificando..."):
-                    if login(sb, email, password):
+                    if login(sb, _USERS[name], password):
                         st.rerun()
