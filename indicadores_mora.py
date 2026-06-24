@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from auth import is_admin
 
 COLORS = {
     "primary": "#1a3c6e", "accent": "#3b82f6", "success": "#10b981",
@@ -153,15 +154,16 @@ def _detect_columns(df: pd.DataFrame) -> dict:
 def _column_picker(df: pd.DataFrame, detected: dict) -> dict:
     cols = dict(detected)
     options = [NINGUNA] + list(df.columns)
-    with st.expander("⚙️ Ajustar columnas — Cartera General"):
-        keys = list(COLUMN_CANDIDATES.keys())
-        grid_cols = st.columns(4)
-        for i, key in enumerate(keys):
-            target = grid_cols[i % 4]
-            current = cols.get(key)
-            index = options.index(current) if current in options else 0
-            picked = target.selectbox(COLUMN_LABELS[key], options, index=index, key=f"ind_col_{key}")
-            cols[key] = None if picked == NINGUNA else picked
+    if is_admin():
+        with st.expander("⚙️ Ajustar columnas — Cartera General"):
+            keys = list(COLUMN_CANDIDATES.keys())
+            grid_cols = st.columns(4)
+            for i, key in enumerate(keys):
+                target = grid_cols[i % 4]
+                current = cols.get(key)
+                index = options.index(current) if current in options else 0
+                picked = target.selectbox(COLUMN_LABELS[key], options, index=index, key=f"ind_col_{key}")
+                cols[key] = None if picked == NINGUNA else picked
     return cols
 
 
@@ -225,20 +227,7 @@ def tab_indicadores(df: pd.DataFrame):
     if cols.get("pago"):
         df["__pago__"] = _to_num(df[cols["pago"]])
 
-    with st.expander("🔍 Debug columnas detectadas", expanded=False):
-        st.write("**Columnas mapeadas:**", cols)
-        if cols.get("pago"):
-            st.write(f"**Pago** (`{cols['pago']}`) — muestra:", df[cols["pago"]].dropna().head(10).tolist())
-            st.write(f"**Pago sum numérico:**", _to_num(df[cols["pago"]]).sum())
-            st.write(f"**__pago__ en df:**", "__pago__" in df.columns)
-            if "__pago__" in df.columns:
-                st.write(f"**__pago__ sum:**", df["__pago__"].sum())
-        if cols.get("visita"):
-            st.write(f"**Visita** (`{cols['visita']}`) — value_counts:")
-            st.dataframe(df[cols["visita"]].fillna("(vacío)").value_counts().head(20).reset_index())
-        if cols.get("contacto"):
-            st.write(f"**Contacto** (`{cols['contacto']}`) — value_counts:")
-            st.dataframe(df[cols["contacto"]].fillna("(vacío)").value_counts().head(20).reset_index())
+
 
     total_cuentas = len(df)
     saldo_asignado = df["__saldo__"].sum()
