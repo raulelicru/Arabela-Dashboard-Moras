@@ -19,18 +19,18 @@
    VARIABLES GLOBALES Y RESET
    ============================================================ */
 :root{
-  --bg:#0B0F1A;
-  --surface:#131929;
-  --card:#1A2236;
-  --border:#243054;
+  --bg:#F1F5F9;
+  --surface:#F8FAFC;
+  --card:#FFFFFF;
+  --border:#E2E8F0;
   --accent1:#3B82F6;
   --accent2:#10B981;
   --accent3:#F59E0B;
   --accent4:#EF4444;
   --accent5:#8B5CF6;
-  --text:#E2E8F0;
-  --muted:#64748B;
-  --label:#94A3B8;
+  --text:#1E293B;
+  --muted:#94A3B8;
+  --label:#475569;
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
@@ -266,7 +266,7 @@ a{color:inherit;}
 
 nav.topbar{
   position:sticky;top:0;z-index:50;
-  background:rgba(11,15,26,.85);
+  background:rgba(255,255,255,.85);
   backdrop-filter:blur(10px);
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
@@ -336,7 +336,7 @@ main{padding:24px;max-width:1400px;margin:0 auto;}
   padding:18px;
   transition:transform .15s,border-color .15s;
 }
-.card:hover{transform:translateY(-2px);border-color:#324270;}
+.card:hover{transform:translateY(-2px);border-color:#CBD5E1;}
 .card h3{margin:0 0 14px;font-size:14px;font-weight:600;color:var(--text);}
 
 .kpi-card{position:relative;padding-left:22px;overflow:hidden;}
@@ -362,13 +362,13 @@ main{padding:24px;max-width:1400px;margin:0 auto;}
 
 table{width:100%;border-collapse:collapse;font-size:13px;}
 thead th{
-  background:#10172A;color:var(--label);text-align:left;
+  background:var(--bg);color:var(--label);text-align:left;
   padding:10px 12px;font-weight:600;font-size:12px;
   position:sticky;top:0;cursor:pointer;user-select:none;white-space:nowrap;
 }
 thead th:hover{color:var(--text);}
 tbody td{padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
-tbody tr:nth-child(even){background:rgba(255,255,255,.015);}
+tbody tr:nth-child(even){background:rgba(15,23,42,.025);}
 tbody tr:hover{background:rgba(59,130,246,.07);}
 .table-scroll{overflow:auto;max-height:500px;border:1px solid var(--border);border-radius:10px;}
 
@@ -376,11 +376,11 @@ tbody tr:hover{background:rgba(59,130,246,.07);}
   display:inline-block;padding:3px 10px;border-radius:20px;
   font-size:11px;font-weight:600;white-space:nowrap;
 }
-.pill-green{background:rgba(16,185,129,.15);color:#34D399;}
-.pill-amber{background:rgba(245,158,11,.15);color:#FBBF24;}
-.pill-red{background:rgba(239,68,68,.15);color:#F87171;}
-.pill-purple{background:rgba(139,92,246,.15);color:#A78BFA;}
-.pill-blue{background:rgba(59,130,246,.15);color:#60A5FA;}
+.pill-green{background:rgba(16,185,129,.12);color:#047857;}
+.pill-amber{background:rgba(245,158,11,.12);color:#B45309;}
+.pill-red{background:rgba(239,68,68,.12);color:#B91C1C;}
+.pill-purple{background:rgba(139,92,246,.12);color:#6D28D9;}
+.pill-blue{background:rgba(59,130,246,.12);color:#1D4ED8;}
 
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;}
 .search-wrap{position:relative;flex:1;min-width:220px;}
@@ -672,11 +672,13 @@ window.appState = {
 /* ============================================================
    CONFIGURACIÓN GLOBAL DE CHART.JS
    ============================================================ */
-Chart.defaults.color = '#94A3B8';
+Chart.defaults.color = '#475569';
 Chart.defaults.font.family = 'Inter, sans-serif';
 Chart.defaults.plugins.legend.display = false;
-Chart.defaults.plugins.tooltip.backgroundColor = '#1A2236';
-Chart.defaults.plugins.tooltip.borderColor = '#243054';
+Chart.defaults.plugins.tooltip.backgroundColor = '#1E293B';
+Chart.defaults.plugins.tooltip.titleColor = '#F1F5F9';
+Chart.defaults.plugins.tooltip.bodyColor = '#F1F5F9';
+Chart.defaults.plugins.tooltip.borderColor = '#334155';
 Chart.defaults.plugins.tooltip.borderWidth = 1;
 Chart.defaults.plugins.tooltip.padding = 10;
 
@@ -1337,7 +1339,7 @@ function renderDivisionSection(stats){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ stacked:true, grid:{color:'#1A2236'} }, y:{ stacked:true, grid:{color:'#1A2236'} } },
+      scales:{ x:{ stacked:true, grid:{color:'#E2E8F0'} }, y:{ stacked:true, grid:{color:'#E2E8F0'} } },
       plugins:{ legend:{ display:true, position:'top' } }
     }
   });
@@ -1404,7 +1406,7 @@ function renderEstadoSection(stats){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ grid:{color:'#1A2236'} }, y:{ grid:{color:'#1A2236'} } },
+      scales:{ x:{ grid:{color:'#E2E8F0'} }, y:{ grid:{color:'#E2E8F0'} } },
       plugins:{ legend:{ display:true, position:'top' } }
     }
   });
@@ -1425,7 +1427,7 @@ function renderEstadoTable(stats){
       return `<tr>
         <td>${name}</td><td class="mono">${g.total}</td><td class="mono">${g.conNumero}</td>
         <td class="mono">${g.sinNumero}</td><td class="mono">${g.incompleto}</td>
-        <td class="mono" style="${pSN>20?'color:#FBBF24;font-weight:600;':''}">${pSN}%</td>
+        <td class="mono" style="${pSN>20?'color:#B45309;font-weight:600;':''}">${pSN}%</td>
         <td class="mono">${g.duplicados}</td><td class="mono">${pAlta}%</td>
       </tr>`;
     }).join('')}</tbody>`;
@@ -1469,7 +1471,7 @@ function renderDuplicatesSection(data){
   list.innerHTML = top20.map(([addr,g])=>{
     const n = g.n;
     const sample = g.rows[0];
-    const color = n>=10?'#EF4444':n>=5?'#F59E0B':n>=3?'#FBBF24':'#94A3B8';
+    const color = n>=10?'#EF4444':n>=5?'#F59E0B':n>=3?'#D97706':'#64748B';
     return `<div class="dup-card">
       <div class="dup-num" style="color:${color};">${n}</div>
       <div class="dup-info">
@@ -1686,12 +1688,12 @@ function renderAlerts(stats, data){
    ============================================================ */
 function buildRulesTable(){
   return `<table class="rules-table" style="width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;">
-    <thead><tr style="background:#10172A;"><th style="padding:8px;text-align:left;">Regla</th><th style="padding:8px;text-align:left;">Condición</th><th style="padding:8px;text-align:left;">Resultado</th></tr></thead>
+    <thead><tr style="background:#F1F5F9;"><th style="padding:8px;text-align:left;">Regla</th><th style="padding:8px;text-align:left;">Condición</th><th style="padding:8px;text-align:left;">Resultado</th></tr></thead>
     <tbody>
-      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R1</td><td style="padding:8px;border-bottom:1px solid #243054;">Tiene número real de calle (No. distinto de S/N)</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Con Número · P1 Inmediata</td></tr>
-      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R2</td><td style="padding:8px;border-bottom:1px solid #243054;">S/N pero MZA y LT ambos con valor real</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Con Número · P1 Inmediata</td></tr>
-      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R3</td><td style="padding:8px;border-bottom:1px solid #243054;">Calle/Andador + MZA real + LT real</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Con Número · P1 Inmediata</td></tr>
-      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R4</td><td style="padding:8px;border-bottom:1px solid #243054;">Sin número, solo MZA o solo LT (no ambos)</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Incompleto · P3 No Viable</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #E2E8F0;">R1</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Tiene número real de calle (No. distinto de S/N)</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Domicilio Con Número · P1 Inmediata</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #E2E8F0;">R2</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">S/N pero MZA y LT ambos con valor real</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Domicilio Con Número · P1 Inmediata</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #E2E8F0;">R3</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Calle/Andador + MZA real + LT real</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Domicilio Con Número · P1 Inmediata</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #E2E8F0;">R4</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Sin número, solo MZA o solo LT (no ambos)</td><td style="padding:8px;border-bottom:1px solid #E2E8F0;">Domicilio Incompleto · P3 No Viable</td></tr>
       <tr><td style="padding:8px;">R5</td><td style="padding:8px;">Sin número, sin MZA ni LT reales</td><td style="padding:8px;">Sin Número (S/N) · P2 Verificar</td></tr>
     </tbody>
   </table>`;
@@ -1727,8 +1729,8 @@ function downloadReport(){
 
   const dupListHtml = top20Dup.map(([addr,rows])=>{
     const sample = rows[0];
-    return `<div style="display:flex;gap:16px;align-items:center;background:#131929;border:1px solid #243054;border-radius:10px;padding:12px 16px;margin-bottom:8px;">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;min-width:36px;text-align:center;color:${rows.length>=10?'#EF4444':rows.length>=5?'#F59E0B':'#94A3B8'};">${rows.length}</div>
+    return `<div style="display:flex;gap:16px;align-items:center;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;min-width:36px;text-align:center;color:${rows.length>=10?'#EF4444':rows.length>=5?'#F59E0B':'#64748B'};">${rows.length}</div>
       <div><div style="font-weight:600;font-size:13.5px;">${addr}</div><div style="font-size:12px;color:#64748B;margin-top:2px;">${sample.COLONIA} · ${sample.POBLACION} · ${sample.ESTADO} · ${sample.DIVISION}</div></div>
     </div>`;
   }).join('');
@@ -1740,7 +1742,7 @@ function downloadReport(){
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>
 <style>
-:root{--bg:#0B0F1A;--surface:#131929;--card:#1A2236;--border:#243054;--accent1:#3B82F6;--accent2:#10B981;--accent3:#F59E0B;--accent4:#EF4444;--accent5:#8B5CF6;--text:#E2E8F0;--muted:#64748B;--label:#94A3B8;}
+:root{--bg:#F1F5F9;--surface:#F8FAFC;--card:#FFFFFF;--border:#E2E8F0;--accent1:#3B82F6;--accent2:#10B981;--accent3:#F59E0B;--accent4:#EF4444;--accent5:#8B5CF6;--text:#1E293B;--muted:#94A3B8;--label:#475569;}
 *{box-sizing:border-box;}body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
 .mono{font-family:'IBM Plex Mono',monospace;}
 header{padding:24px;border-bottom:1px solid var(--border);background:var(--surface);}
@@ -1754,7 +1756,7 @@ h2{font-size:16px;border-left:4px solid var(--accent1);padding-left:10px;margin:
 .kpi-label{font-size:12px;color:var(--label);margin-bottom:6px;}
 .kpi-value{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
-th{background:#10172A;color:var(--label);text-align:left;padding:9px 10px;font-size:12px;}
+th{background:var(--bg);color:var(--label);text-align:left;padding:9px 10px;font-size:12px;}
 td{padding:8px 10px;border-bottom:1px solid var(--border);}
 .table-scroll{overflow:auto;max-height:500px;border:1px solid var(--border);border-radius:10px;}
 .chart-box{height:280px;}
@@ -1810,7 +1812,7 @@ input{background:var(--card);border:1px solid var(--border);color:var(--text);bo
   <div class="card">${alertsBackup}</div>
 </main>
 <script>
-Chart.defaults.color = '#94A3B8';
+Chart.defaults.color = '#475569';
 Chart.defaults.font.family = 'Inter, sans-serif';
 new Chart(document.getElementById('repTipo').getContext('2d'),{type:'doughnut',data:{labels:['Con Número','Sin Número (S/N)','Incompleto'],datasets:[{data:[${stats.conNumero},${stats.sinNumero},${stats.incompleto}],backgroundColor:['#10B981','#F59E0B','#EF4444'],borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{display:true,position:'bottom'}}}});
 new Chart(document.getElementById('repViab').getContext('2d'),{type:'doughnut',data:{labels:['Alta','Media','Baja'],datasets:[{data:[${stats.viabAlta},${stats.viabMedia},${stats.viabBaja}],backgroundColor:['#10B981','#F59E0B','#EF4444'],borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{display:true,position:'bottom'}}}});
