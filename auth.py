@@ -93,9 +93,12 @@ def require_auth(sb: Client):
 
 
 _USERS = {
-    "Raul Elizalde":  "raulelicru@gmail.com",
-    "Ángeles Cruz":   "angeleselicru@gmail.com",
-    "Claudia Vallejo": "claudia.vallejo@cgconsultoresjuridicos.mx",
+    "Raul Elizalde":          "raulelicru@gmail.com",
+    "Ángeles Cruz":           "angeleselicru@gmail.com",
+    "Claudia Vallejo":        "claudia.vallejo@cgconsultoresjuridicos.mx",
+    "Lourdes Martinez":       "lourdes.martinez@arabela.com",
+    "Eduardo Perez":          "eduardo.perez@arabela.com",
+    "Jenifer Cravioto":       "jenifer.cravioto@arabela.com",
 }
 
 
