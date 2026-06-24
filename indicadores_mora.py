@@ -110,6 +110,7 @@ COLUMN_CANDIDATES = {
     "saldo": ["saldodama", "saldo"],
     "pago": ["pago"],
     "visita": ["vistas gestor", "visitas gestor", "gestion", "visita"],
+    "promesa": ["dictaminacion de llamada", "dictam llamada", "dictaminacion llamada"],
     "dictaminacion": ["dictaminacion", "dictam"],
     "situacion": ["descsituacion", "situacion", "estatus"],
 }
@@ -223,11 +224,10 @@ def tab_indicadores(df: pd.DataFrame):
     visitas_realizadas = int(_to_num(df[visita_col]).sum()) if visita_col else 0
     pct_visitas = (visitas_realizadas / total_cuentas * 100) if total_cuentas else 0.0
 
-    promesas = 0
-    if visita_col:
-        promesas += int(df[visita_col].astype(str).str.upper().str.contains("PROMESA", na=False).sum())
-    if cols.get("dictaminacion"):
-        promesas += int(df[cols["dictaminacion"]].astype(str).str.upper().str.contains("PROMESA", na=False).sum())
+    promesa_col = cols.get("promesa") or cols.get("dictaminacion")
+    promesas = int(
+        df[promesa_col].astype(str).str.upper().str.contains("PROMESA", na=False).sum()
+    ) if promesa_col else 0
     pct_promesas = (promesas / total_cuentas * 100) if total_cuentas else 0.0
 
     contacto_efectivo = visitas_realizadas + promesas
