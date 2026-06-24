@@ -250,11 +250,10 @@ def tab_indicadores(df: pd.DataFrame):
 
     visita_col = cols.get("visita")
     if visita_col:
-        _vis_raw = df[visita_col]
-        _vis_str = _vis_raw.fillna("").astype(str).str.strip()
-        visitas_realizadas = int(
-            (_vis_raw.notna() & (_vis_str != "") & (_vis_str.str.lower() != "nan")).sum()
-        )
+        _EXCLUIR = {"", "nan", "none", "0", "0.0", "sin gestion", "sin visita",
+                    "no visita", "no contacto", "sin contacto", "no gestion"}
+        _vis = df[visita_col].fillna("").astype(str).str.strip().str.lower()
+        visitas_realizadas = int((~_vis.isin(_EXCLUIR)).sum())
     else:
         visitas_realizadas = 0
     pct_visitas = (visitas_realizadas / total_cuentas * 100) if total_cuentas else 0.0
@@ -267,7 +266,7 @@ def tab_indicadores(df: pd.DataFrame):
 
     contacto_col = cols.get("contacto")
     contacto_efectivo = int(
-        df[contacto_col].astype(str).str.strip().replace("nan", "").ne("").sum()
+        df[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").sum()
     ) if contacto_col else visitas_realizadas + promesas
     pct_contacto = (contacto_efectivo / total_cuentas * 100) if total_cuentas else 0.0
 
