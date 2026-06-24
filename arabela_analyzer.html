@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arabela Cobranza — Análisis de Domicilios</title>
+
+<!-- ===================== FUENTES ===================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- ===================== LIBRERIAS CDN ===================== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<style>
+/* ============================================================
+   VARIABLES GLOBALES Y RESET
+   ============================================================ */
+:root{
+  --bg:#0B0F1A;
+  --surface:#131929;
+  --card:#1A2236;
+  --border:#243054;
+  --accent1:#3B82F6;
+  --accent2:#10B981;
+  --accent3:#F59E0B;
+  --accent4:#EF4444;
+  --accent5:#8B5CF6;
+  --text:#E2E8F0;
+  --muted:#64748B;
+  --label:#94A3B8;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',monospace;}
+a{color:inherit;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;}
+
+/* ============================================================
+   PANTALLA DE CARGA (LANDING)
+   ============================================================ */
+#landing{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  padding:24px;
+  transition:opacity .5s ease;
+}
+.landing-box{
+  width:100%;
+  max-width:640px;
+  text-align:center;
+}
+.landing-title{
+  font-size:30px;
+  font-weight:700;
+  margin:0 0 8px;
+  background:linear-gradient(90deg,var(--accent1),var(--accent5));
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.landing-sub{
+  color:var(--label);
+  font-size:15px;
+  margin:0 0 32px;
+}
+.dropzone{
+  border:2px dashed var(--accent1);
+  border-radius:16px;
+  padding:48px 24px;
+  cursor:pointer;
+  background:var(--surface);
+  transition:border-color .2s,background .2s,transform .2s;
+  animation:pulse-border 2.4s ease-in-out infinite;
+}
+.dropzone:hover,.dropzone.dragover{
+  background:var(--card);
+  transform:translateY(-2px);
+}
+@keyframes pulse-border{
+  0%,100%{border-color:var(--accent1);}
+  50%{border-color:#60A5FA;}
+}
+.dropzone svg{width:56px;height:56px;margin-bottom:12px;}
+.dropzone-text{font-size:15px;color:var(--text);margin:0 0 4px;font-weight:500;}
+.dropzone-hint{font-size:12px;color:var(--muted);margin:0;}
+#fileInput{display:none;}
+
+.file-info{
+  display:none;
+  margin-top:20px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px 18px;
+  text-align:left;
+  align-items:center;
+  gap:12px;
+}
+.file-info.show{display:flex;}
+.file-info .fname{font-weight:600;font-size:14px;word-break:break-all;}
+.file-info .fsize{font-size:12px;color:var(--muted);}
+
+.btn{
+  border:none;
+  border-radius:10px;
+  padding:12px 28px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  font-family:'Inter',sans-serif;
+  transition:transform .15s,box-shadow .15s,opacity .15s;
+}
+.btn:active{transform:translateY(1px);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--accent2);color:#06281c;}
+.btn-primary:hover:not(:disabled){box-shadow:0 0 0 4px rgba(16,185,129,.15);}
+.btn-accent{background:var(--accent2);color:#06281c;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn-ghost:hover{border-color:var(--accent1);}
+
+#analyzeBtn{margin-top:22px;}
+
+.progress-wrap{
+  display:none;
+  margin-top:28px;
+  text-align:left;
+}
+.progress-wrap.show{display:block;}
+.progress-track{
+  width:100%;
+  height:8px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:6px;
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,var(--accent1),var(--accent2));
+  transition:width .35s ease;
+}
+.progress-msg{
+  margin-top:10px;
+  font-size:13px;
+  color:var(--label);
+  font-family:'IBM Plex Mono',monospace;
+}
+.error-box{
+  display:none;
+  margin-top:18px;
+  background:rgba(239,68,68,.1);
+  border:1px solid var(--accent4);
+  border-radius:10px;
+  padding:14px 16px;
+  text-align:left;
+  font-size:13px;
+  color:#FCA5A5;
+}
+.error-box.show{display:block;}
+
+/* ============================================================
+   DASHBOARD GENERAL
+   ============================================================ */
+#dashboard{display:none;opacity:0;transition:opacity .5s ease;}
+#dashboard.show{display:block;}
+#dashboard.fade-in{opacity:1;}
+
+nav.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(11,15,26,.85);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;gap:16px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-title{font-weight:700;font-size:16px;}
+.campaign-badge{
+  background:var(--accent1);
+  color:#fff;
+  font-size:11px;
+  font-weight:600;
+  padding:3px 9px;
+  border-radius:20px;
+}
+.tabs{display:flex;gap:4px;overflow-x:auto;}
+.tab-btn{
+  background:transparent;border:none;color:var(--label);
+  padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:500;
+  cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;
+}
+.tab-btn:hover{background:var(--surface);color:var(--text);}
+.tab-btn.active{background:var(--card);color:var(--text);box-shadow:inset 0 0 0 1px var(--border);}
+
+.filterbar{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:10px 24px;
+}
+.filterbar label{font-size:12px;color:var(--label);margin-right:6px;}
+select,input[type="text"]{
+  background:var(--card);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:8px;
+  padding:7px 10px;
+  font-size:13px;
+  font-family:'Inter',sans-serif;
+}
+select:focus,input:focus{outline:none;border-color:var(--accent1);}
+.badge-count{
+  background:var(--card);
+  border:1px solid var(--border);
+  color:var(--label);
+  font-size:12px;
+  padding:5px 12px;
+  border-radius:20px;
+}
+
+main{padding:24px;max-width:1400px;margin:0 auto;}
+.section{display:none;animation:fadein .4s ease;}
+.section.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+.grid{display:grid;gap:16px;}
+.grid-kpi{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));}
+.grid-2{grid-template-columns:1fr 1fr;}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+@media (max-width:900px){.grid-2,.grid-4{grid-template-columns:1fr;}}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:18px;
+  transition:transform .15s,border-color .15s;
+}
+.card:hover{transform:translateY(-2px);border-color:#324270;}
+.card h3{margin:0 0 14px;font-size:14px;font-weight:600;color:var(--text);}
+
+.kpi-card{position:relative;padding-left:22px;overflow:hidden;}
+.kpi-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:5px;
+}
+.kpi-c1::before{background:var(--accent1);}
+.kpi-c2::before{background:var(--accent2);}
+.kpi-c3::before{background:var(--accent3);}
+.kpi-c4::before{background:var(--accent4);}
+.kpi-c5::before{background:var(--accent5);}
+.kpi-label{font-size:12px;color:var(--label);margin-bottom:6px;}
+.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;}
+.kpi-sub{font-size:11.5px;color:var(--muted);margin-top:4px;}
+
+.chart-box{height:280px;position:relative;}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;}
+.bar-row .blabel{width:130px;flex-shrink:0;color:var(--label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;height:10px;background:var(--surface);border-radius:6px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;width:0%;transition:width .8s ease;}
+.bar-num{width:50px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--text);font-size:12px;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{
+  background:#10172A;color:var(--label);text-align:left;
+  padding:10px 12px;font-weight:600;font-size:12px;
+  position:sticky;top:0;cursor:pointer;user-select:none;white-space:nowrap;
+}
+thead th:hover{color:var(--text);}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody tr:nth-child(even){background:rgba(255,255,255,.015);}
+tbody tr:hover{background:rgba(59,130,246,.07);}
+.table-scroll{overflow:auto;max-height:500px;border:1px solid var(--border);border-radius:10px;}
+
+.pill{
+  display:inline-block;padding:3px 10px;border-radius:20px;
+  font-size:11px;font-weight:600;white-space:nowrap;
+}
+.pill-green{background:rgba(16,185,129,.15);color:#34D399;}
+.pill-amber{background:rgba(245,158,11,.15);color:#FBBF24;}
+.pill-red{background:rgba(239,68,68,.15);color:#F87171;}
+.pill-purple{background:rgba(139,92,246,.15);color:#A78BFA;}
+.pill-blue{background:rgba(59,130,246,.15);color:#60A5FA;}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;}
+.search-wrap{position:relative;flex:1;min-width:220px;}
+.search-wrap input{width:100%;padding-left:32px;}
+.search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted);}
+
+.pagination{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap;}
+.page-btn{
+  background:var(--surface);border:1px solid var(--border);color:var(--text);
+  padding:6px 11px;border-radius:7px;font-size:12.5px;cursor:pointer;
+}
+.page-btn.active{background:var(--accent1);color:#fff;border-color:var(--accent1);}
+.page-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+.dup-card{
+  display:flex;align-items:center;gap:16px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:12px 16px;margin-bottom:8px;
+}
+.dup-num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;min-width:36px;text-align:center;}
+.dup-info .dup-addr{font-weight:600;font-size:13.5px;}
+.dup-info .dup-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.dup-list{max-height:640px;overflow-y:auto;}
+
+.alert-card{
+  display:flex;gap:12px;align-items:flex-start;
+  border-radius:10px;padding:14px 16px;margin-bottom:10px;
+  border:1px solid var(--border);
+}
+.alert-critico{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.35);}
+.alert-atencion{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.35);}
+.alert-positivo{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.35);}
+.alert-accion{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.35);}
+.alert-icon{font-size:20px;line-height:1;}
+.alert-level{font-weight:700;font-size:12.5px;letter-spacing:.3px;display:block;margin-bottom:3px;}
+.alert-text{font-size:13.5px;color:var(--text);}
+
+.rules-table td,.rules-table th{white-space:normal;}
+
+footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
+
+@media (max-width:700px){
+  main{padding:16px;}
+  .bar-row .blabel{width:90px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     PANTALLA DE CARGA
+     ============================================================ -->
+<div id="landing">
+  <div class="landing-box">
+    <h1 class="landing-title">Arabela Cobranza — Análisis de Domicilios</h1>
+    <p class="landing-sub">Carga tu archivo Excel para comenzar el análisis</p>
+
+    <div class="dropzone" id="dropzone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5" style="margin:0 auto;display:block;">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <path d="M14 2v6h6"/>
+        <path d="M9.5 15.5l1.7-2.4 1.7 2.4M9 13h4"/>
+      </svg>
+      <p class="dropzone-text">Arrastra tu archivo .xlsx aquí o haz clic para seleccionar</p>
+      <p class="dropzone-hint">Solo archivos .xlsx</p>
+      <input type="file" id="fileInput" accept=".xlsx">
+    </div>
+
+    <div class="file-info" id="fileInfo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <div>
+        <div class="fname" id="fileName"></div>
+        <div class="fsize" id="fileSize"></div>
+      </div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <button class="btn btn-primary" id="analyzeBtn" style="display:none;">Analizar Archivo</button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <p class="progress-msg" id="progressMsg">Leyendo archivo...</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     DASHBOARD
+     ============================================================ -->
+<div id="dashboard">
+
+  <nav class="topbar">
+    <div class="brand">
+      <span class="brand-title">Arabela Cobranza</span>
+      <span class="campaign-badge" id="campaignBadge">—</span>
+    </div>
+    <div class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="resumen">Resumen</button>
+      <button class="tab-btn" data-tab="division">Por División</button>
+      <button class="tab-btn" data-tab="estado">Por Estado</button>
+      <button class="tab-btn" data-tab="duplicados">Duplicados</button>
+      <button class="tab-btn" data-tab="tabla">Tabla</button>
+      <button class="tab-btn" data-tab="alertas">Alertas</button>
+    </div>
+    <button class="btn btn-accent" id="downloadBtn">⬇ Descargar Reporte</button>
+  </nav>
+
+  <div class="filterbar">
+    <div>
+      <label>División</label>
+      <select id="filterDivision"><option value="">Todas</option></select>
+    </div>
+    <div>
+      <label>Estado</label>
+      <select id="filterEstado"><option value="">Todos</option></select>
+    </div>
+    <button class="btn btn-ghost" id="resetFilters" style="padding:6px 14px;font-size:12.5px;">Reset</button>
+    <span class="badge-count" id="filterCount">0 registros mostrados</span>
+  </div>
+
+  <main>
+
+    <!-- ============ SECCION 1: RESUMEN ============ -->
+    <section class="section active" id="sec-resumen">
+      <div class="grid grid-kpi" id="kpiRow"></div>
+
+      <div class="grid grid-2" style="margin-top:16px;">
+        <div class="card">
+          <h3>Tipo de Problema</h3>
+          <div class="chart-box"><canvas id="chartTipo"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Viabilidad de Visita</h3>
+          <div class="chart-box"><canvas id="chartViab"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:16px;">
+        <div class="card">
+          <h3>Distribución por División</h3>
+          <div id="barsDivision"></div>
+        </div>
+        <div class="card">
+          <h3>Distribución por Estado</h3>
+          <div id="barsEstado"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SECCION 2: POR DIVISION ============ -->
+    <section class="section" id="sec-division">
+      <div class="card" style="margin-bottom:16px;">
+        <h3>Distribución por División</h3>
+        <div class="chart-box" style="height:340px;"><canvas id="chartDivisionStacked"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Tabla comparativa por División</h3>
+        <div class="table-scroll"><table id="tableDivision"></table></div>
+      </div>
+    </section>
+
+    <!-- ============ SECCION 3: POR ESTADO ============ -->
+    <section class="section" id="sec-estado">
+      <div class="card" style="margin-bottom:16px;">
+        <h3>Distribución por Estado</h3>
+        <div class="chart-box" style="height:340px;"><canvas id="chartEstadoGrouped"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Tabla por Estado</h3>
+        <div class="table-scroll"><table id="tableEstado"></table></div>
+      </div>
+    </section>
+
+    <!-- ============ SECCION 4: DUPLICADOS ============ -->
+    <section class="section" id="sec-duplicados">
+      <div class="grid grid-4" id="dupKpiRow" style="margin-bottom:16px;"></div>
+      <div class="card">
+        <h3>Top domicilios con más cuentas</h3>
+        <div class="dup-list" id="dupList"></div>
+      </div>
+    </section>
+
+    <!-- ============ SECCION 5: TABLA ============ -->
+    <section class="section" id="sec-tabla">
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5"/></svg>
+            <input type="text" id="searchInput" placeholder="Buscar por nombre, No. Dama o dirección...">
+          </div>
+          <select id="filtTipo"><option value="">Tipo Problema</option></select>
+          <select id="filtViab"><option value="">Viabilidad</option></select>
+          <select id="filtDivisionTabla"><option value="">División</option></select>
+          <select id="filtDup">
+            <option value="">Duplicado: Todos</option>
+            <option value="DUPLICADO">Solo duplicados</option>
+            <option value="UNICO">Solo únicos</option>
+          </select>
+          <button class="btn btn-ghost" id="clearTableFilters" style="padding:7px 14px;font-size:12.5px;">Limpiar filtros</button>
+          <span class="badge-count" id="tableCount">0 / 0</span>
+        </div>
+        <div class="table-scroll">
+          <table id="mainTable">
+            <thead>
+              <tr>
+                <th style="min-width:90px;">No. Dama</th>
+                <th style="min-width:160px;">Nombre</th>
+                <th style="min-width:110px;">División</th>
+                <th style="min-width:90px;">Zona</th>
+                <th style="min-width:260px;">Dirección Corregida</th>
+                <th style="min-width:140px;">Referencia</th>
+                <th style="min-width:160px;">Tipo</th>
+                <th style="min-width:80px;">Viab.</th>
+                <th style="min-width:60px;">Prior.</th>
+                <th style="min-width:80px;">Dup.</th>
+              </tr>
+            </thead>
+            <tbody id="mainTableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </section>
+
+    <!-- ============ SECCION 6: ALERTAS ============ -->
+    <section class="section" id="sec-alertas">
+      <div id="alertsContainer"></div>
+    </section>
+
+  </main>
+  <footer class="note">Arabela Cobranza · Motor de análisis ejecutado 100% en el navegador</footer>
+</div>
+
+<script>
+/* ============================================================
+   ESTADO GLOBAL DE LA APLICACIÓN
+   ============================================================ */
+window.appState = {
+  rawData: [],
+  analyzedData: [],
+  filteredData: [],
+  currentFilters: { division:'', estado:'' },
+  tableFilters: { search:'', tipo:'', viab:'', division:'', dup:'' },
+  tablePage: 1,
+  tableSort: { col:null, dir:1 },
+  charts: {},
+  fileName: '',
+  campaign: 'C-00'
+};
+
+/* ============================================================
+   CONFIGURACIÓN GLOBAL DE CHART.JS
+   ============================================================ */
+Chart.defaults.color = '#94A3B8';
+Chart.defaults.font.family = 'Inter, sans-serif';
+Chart.defaults.plugins.legend.display = false;
+Chart.defaults.plugins.tooltip.backgroundColor = '#1A2236';
+Chart.defaults.plugins.tooltip.borderColor = '#243054';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.padding = 10;
+
+/* ============================================================
+   CLASE PRINCIPAL: ArabelaAnalyzer
+   Contiene todo el motor de normalización, clasificación,
+   detección de duplicados y cálculo de estadísticas.
+   ============================================================ */
+class ArabelaAnalyzer {
+
+  /* ---------- Definición de alias de columnas a detectar ---------- */
+  static COLUMN_ALIASES = {
+    status:      ['status'],
+    region:      ['region'],
+    division:    ['division','divisin'],
+    ruta:        ['ruta'],
+    zona:        ['zona'],
+    campana:     ['campana','campaa','campaña','campaign'],
+    refPago:     ['referencia de pago','ref pago','referencia pago'],
+    noDama:      ['no. dama','no dama','numero de dama','num dama','no.dama'],
+    nombre:      ['nombre'],
+    direccion:   ['direccion','direccin','domicilio'],
+    cp:          ['cp','codigo postal'],
+    colonia:     ['colonia'],
+    poblacion:   ['poblacion','poblacin','municipio'],
+    estado:      ['estado']
+  };
+
+  /* ---------- Correcciones tipográficas exactas ---------- */
+  static TYPO_FIXES = [
+    [/\bSECCIN\b/g,'SECCION'],
+    [/\bAMPLIACIN\b/g,'AMPLIACION'],
+    [/\bJIMNEZ\b/g,'JIMENEZ'],
+    [/\bGONZLEZ\b/g,'GONZALEZ'],
+    [/\bMARTN\b/g,'MARTIN'],
+    [/\bHERNNDEZ\b/g,'HERNANDEZ'],
+    [/\bRODRGUZ\b/g,'RODRIGUEZ'],
+    [/\bZAVADA\b/g,'ZAVALA'],
+    [/\bBRUBO\b/g,'BRUNO'],
+    [/\bAIR3S\b/g,'AIRES'],
+    [/\bAIR3Z\b/g,'AIRES'],
+    [/\bEJRCITO\b/g,'EJERCITO'],
+    [/\bCONSTITUCIN\b/g,'CONSTITUCION'],
+    [/\bCONSTITUCON\b/g,'CONSTITUCION'],
+    [/\bPROLONGACIN\b/g,'PROLONGACION'],
+    [/\bCANT\b/g,'CANTU']
+  ];
+
+  /* ---------- Detección de columnas por nombre (case-insensitive, trim) ---------- */
+  static detectColumns(headerRow){
+    const norm = h => String(h||'').toLowerCase().trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const map = {};
+    headerRow.forEach((h,idx)=>{
+      const nh = norm(h);
+      for(const key in ArabelaAnalyzer.COLUMN_ALIASES){
+        if(map[key] !== undefined) continue;
+        const aliases = ArabelaAnalyzer.COLUMN_ALIASES[key].map(norm);
+        if(aliases.includes(nh)){ map[key] = idx; }
+      }
+    });
+    return map;
+  }
+
+  /* ---------- Normalización de texto general (mayusculas, acentos, espacios) ---------- */
+  static normalizeText(str){
+    if(str === null || str === undefined) return '';
+    let t = String(str).trim().toUpperCase();
+    t = t.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    ArabelaAnalyzer.TYPO_FIXES.forEach(([re,rep])=>{ t = t.replace(re,rep); });
+    // Estandarizar S/N en sus distintas variantes (NO, MZA, LT, INT)
+    t = t.replace(/\b(NO|NUM|N)\.?\s*S\.?\/?\s*N\b/g,'NO S/N');
+    t = t.replace(/\bMZA\.?\s*S\.?\/?\s*N\b/g,'MZA S/N');
+    t = t.replace(/\bLT\.?\s*S\.?\/?\s*N\b/g,'LT S/N');
+    t = t.replace(/\bINT\.?\s*S\.?\/?\s*N\b/g,'INT S/N');
+    t = t.replace(/\s{2,}/g,' ').trim();
+    return t;
+  }
+
+  /* ---------- Limpieza específica de colonia: quitar prefijos COL./FRACC. ---------- */
+  static cleanColonia(str){
+    let t = ArabelaAnalyzer.normalizeText(str);
+    t = t.replace(/^(COLONIA|COL\.?|FRACCIONAMIENTO|FRACC\.?)\s+/,'');
+    return t.trim();
+  }
+
+  /* ---------- Limpieza de dirección: quitar Mza/Lt/Int S/N sin valor, conservar reales ---------- */
+  static cleanDireccion(str){
+    let t = ArabelaAnalyzer.normalizeText(str);
+    t = t.replace(/\bMZA\s*S\/N\b/g,'');
+    t = t.replace(/\bLT\s*S\/N\b/g,'');
+    t = t.replace(/\bINT\s*S\/N\b/g,'');
+    t = t.replace(/\bLOTE\s*S\/N\b/g,'');
+    t = t.replace(/\s{2,}/g,' ').trim();
+    t = t.replace(/^[,\s]+|[,\s]+$/g,'');
+    return t;
+  }
+
+  /* ---------- Extrae el primer número real luego de "NO" (que no sea S/N) ---------- */
+  static extractNumero(direccion){
+    const m = direccion.match(/\bNO\.?\s*(\d+[A-Z]?)\b/);
+    if(m) return m[1];
+    return null;
+  }
+
+  /* ---------- Extrae MZA y LT reales (numéricos) ---------- */
+  static extractMzaLt(direccion){
+    const mza = direccion.match(/\bMZA\.?\s*(\d+)\b/);
+    const lt  = direccion.match(/\bLT\.?\s*(\d+)\b/);
+    return { mza: mza ? mza[1] : null, lt: lt ? lt[1] : null };
+  }
+
+  /* ============================================================
+     CLASIFICACIÓN DE DOMICILIO — 5 reglas en orden estricto
+     ============================================================ */
+  static classifyAddress(direccionCorregida){
+    const d = direccionCorregida;
+    const numero = ArabelaAnalyzer.extractNumero(d);
+    const { mza, lt } = ArabelaAnalyzer.extractMzaLt(d);
+    const startsCalleAndador = /^(CALLE|AND\.?|ANDADOR)\b/.test(d);
+
+    // R1: tiene numero real de calle
+    if(numero){
+      return { tipo:'DOMICILIO CON NÚMERO', prioridad:'P1 - INMEDIATA', referencia: numero, regla:'R1' };
+    }
+    // R2: S/N pero MZA y LT ambos reales
+    if(mza && lt){
+      return { tipo:'DOMICILIO CON NÚMERO', prioridad:'P1 - INMEDIATA', referencia:`MZA ${mza} LT ${lt}`, regla:'R2' };
+    }
+    // R3: CALLE/ANDADOR + MZA real + LT real (mismo resultado que R2, regla aparte por origen)
+    if(startsCalleAndador && mza && lt){
+      return { tipo:'DOMICILIO CON NÚMERO', prioridad:'P1 - INMEDIATA', referencia:`MZA ${mza} LT ${lt}`, regla:'R3' };
+    }
+    // R4: solo MZA o solo LT (no ambos) y sin numero -> incompleto
+    if((mza && !lt) || (!mza && lt)){
+      return { tipo:'DOMICILIO INCOMPLETO', prioridad:'P3 - NO VIABLE', referencia: mza ? `MZA ${mza}` : `LT ${lt}`, regla:'R4' };
+    }
+    // R5: sin numero, sin mza ni lt reales
+    return { tipo:'SIN NÚMERO (S/N)', prioridad:'P2 - VERIFICAR', referencia:'S/N', regla:'R5' };
+  }
+
+  /* ============================================================
+     CÁLCULO DE VIABILIDAD (score)
+     ============================================================ */
+  static computeViability(row, tipo){
+    let score = 0;
+    if(tipo === 'DOMICILIO CON NÚMERO') score += 2;
+    if(/\b\d{5}\b/.test(row.DIRECCION_CORREGIDA) || /\b\d{5}\b/.test(row.CP||'')) score += 1;
+    if((row.COLONIA||'').length > 5) score += 1;
+    if((row.POBLACION||'').length > 3) score += 1;
+
+    let viabilidad;
+    if(tipo === 'DOMICILIO INCOMPLETO'){
+      viabilidad = 'BAJA';
+    } else if(score >= 4){
+      viabilidad = 'ALTA';
+    } else if(score >= 2){
+      viabilidad = 'MEDIA';
+    } else {
+      viabilidad = 'BAJA';
+    }
+    return { score, viabilidad };
+  }
+
+  /* ============================================================
+     DETECCIÓN DE DUPLICADOS — agrupa por DIRECCION_CORREGIDA exacta
+     ============================================================ */
+  static detectDuplicates(rows){
+    const groups = {};
+    rows.forEach(r=>{
+      const key = r.DIRECCION_CORREGIDA || '';
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+    rows.forEach(r=>{
+      const key = r.DIRECCION_CORREGIDA || '';
+      const count = groups[key].length;
+      r.NUM_CUENTAS_MISMO_DOM = count;
+      r.DOMICILIO_DUPLICADO = (count > 1 && key.trim() !== '') ? 'DUPLICADO' : 'UNICO';
+    });
+    return groups;
+  }
+}
+
+/* ============================================================
+   MANEJO DE LA PANTALLA DE CARGA (LANDING) Y LECTURA DE EXCEL
+   ============================================================ */
+const dropzone   = document.getElementById('dropzone');
+const fileInput  = document.getElementById('fileInput');
+const fileInfo   = document.getElementById('fileInfo');
+const fileNameEl = document.getElementById('fileName');
+const fileSizeEl = document.getElementById('fileSize');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressMsg   = document.getElementById('progressMsg');
+const errorBox = document.getElementById('errorBox');
+
+let selectedFile = null;
+
+dropzone.addEventListener('click', ()=> fileInput.click());
+dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e=>{
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if(e.dataTransfer.files.length) handleFileSelection(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e=>{
+  if(e.target.files.length) handleFileSelection(e.target.files[0]);
+});
+
+function showError(msg){
+  errorBox.textContent = msg;
+  errorBox.classList.add('show');
+}
+function hideError(){ errorBox.classList.remove('show'); errorBox.textContent=''; }
+
+function handleFileSelection(file){
+  hideError();
+  if(!file.name.toLowerCase().endsWith('.xlsx')){
+    showError('Formato no soportado. Por favor selecciona un archivo .xlsx');
+    return;
+  }
+  selectedFile = file;
+  fileNameEl.textContent = file.name;
+  fileSizeEl.textContent = (file.size/1024).toFixed(1) + ' KB';
+  fileInfo.classList.add('show');
+  analyzeBtn.style.display = 'inline-block';
+}
+
+analyzeBtn.addEventListener('click', ()=>{
+  if(!selectedFile) return;
+  analyzeBtn.disabled = true;
+  progressWrap.classList.add('show');
+  processExcelFile(selectedFile);
+});
+
+function setProgress(pct, msg){
+  progressFill.style.width = pct + '%';
+  progressMsg.textContent = msg;
+}
+
+/* ---------- Lectura del archivo Excel con SheetJS ---------- */
+function processExcelFile(file){
+  setProgress(8,'Leyendo archivo...');
+  const reader = new FileReader();
+  reader.onerror = ()=>{
+    showError('No se pudo leer el archivo. Verifica que no esté dañado o protegido.');
+    analyzeBtn.disabled = false;
+  };
+  reader.onload = (e)=>{
+    setTimeout(()=>{
+      let workbook;
+      try{
+        const data = new Uint8Array(e.target.result);
+        workbook = XLSX.read(data, { type:'array' });
+      }catch(err){
+        showError('SheetJS no pudo procesar este archivo. Asegúrate de que sea un .xlsx válido.');
+        analyzeBtn.disabled = false;
+        return;
+      }
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
+      if(!json.length){
+        showError('El archivo está vacío o no contiene una hoja de datos válida.');
+        analyzeBtn.disabled = false;
+        return;
+      }
+      const headerRow = json[0];
+      const colMap = ArabelaAnalyzer.detectColumns(headerRow);
+
+      // Validar columnas mínimas indispensables
+      const required = ['direccion'];
+      const missing = required.filter(k => colMap[k] === undefined);
+      if(missing.length){
+        showError('No se encontraron las columnas esperadas en el archivo. Se esperaba al menos una columna de Dirección. Columnas detectadas: ' + headerRow.filter(h=>String(h).trim()!=='').join(', '));
+        analyzeBtn.disabled = false;
+        return;
+      }
+
+      const dataRows = json.slice(1).filter(r => r.some(c => String(c).trim() !== ''));
+      window.appState.rawData = dataRows;
+      window.appState.fileName = file.name;
+      setProgress(20,'Normalizando direcciones...');
+      setTimeout(()=> runAnalysisPipeline(dataRows, colMap), 150);
+    }, 150);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ---------- Pipeline de análisis en chunks (no bloquea el UI) ---------- */
+function runAnalysisPipeline(dataRows, colMap){
+  const CHUNK = 1000;
+  const total = dataRows.length;
+  const results = [];
+  let i = 0;
+
+  function getCell(row, key){
+    const idx = colMap[key];
+    if(idx === undefined) return '';
+    return row[idx] !== undefined && row[idx] !== null ? row[idx] : '';
+  }
+
+  function processChunk(){
+    const end = Math.min(i + CHUNK, total);
+    for(; i < end; i++){
+      const row = dataRows[i];
+      const direccionRaw = getCell(row,'direccion');
+      const direccionCorregida = ArabelaAnalyzer.cleanDireccion(direccionRaw);
+      const colonia = ArabelaAnalyzer.cleanColonia(getCell(row,'colonia'));
+      const poblacion = ArabelaAnalyzer.normalizeText(getCell(row,'poblacion'));
+      const estado = ArabelaAnalyzer.normalizeText(getCell(row,'estado'));
+      const division = ArabelaAnalyzer.normalizeText(getCell(row,'division')) || 'SIN DIVISION';
+      const cp = String(getCell(row,'cp')).trim();
+
+      const clasif = ArabelaAnalyzer.classifyAddress(direccionCorregida);
+      const rowObj = {
+        STATUS: ArabelaAnalyzer.normalizeText(getCell(row,'status')),
+        REGION: ArabelaAnalyzer.normalizeText(getCell(row,'region')),
+        DIVISION: division,
+        RUTA: ArabelaAnalyzer.normalizeText(getCell(row,'ruta')),
+        ZONA: ArabelaAnalyzer.normalizeText(getCell(row,'zona')),
+        CAMPANA: ArabelaAnalyzer.normalizeText(getCell(row,'campana')),
+        REF_PAGO: ArabelaAnalyzer.normalizeText(getCell(row,'refPago')),
+        NO_DAMA: String(getCell(row,'noDama')).trim(),
+        NOMBRE: ArabelaAnalyzer.normalizeText(getCell(row,'nombre')),
+        DIRECCION_ORIGINAL: String(direccionRaw).trim(),
+        DIRECCION_CORREGIDA: direccionCorregida,
+        CP: cp,
+        COLONIA: colonia,
+        POBLACION: poblacion,
+        ESTADO: estado || 'SIN ESTADO',
+        TIPO_PROBLEMA: clasif.tipo,
+        PRIORIDAD: clasif.prioridad,
+        REFERENCIA: clasif.referencia,
+        REGLA: clasif.regla
+      };
+      const viab = ArabelaAnalyzer.computeViability(rowObj, clasif.tipo);
+      rowObj.VIABILIDAD_SCORE = viab.score;
+      rowObj.VIABILIDAD = viab.viabilidad;
+      results.push(rowObj);
+    }
+    const pct = 20 + Math.round((i/total) * 40);
+    setProgress(Math.min(pct,60), 'Clasificando domicilios...');
+
+    if(i < total){
+      setTimeout(processChunk, 0);
+    } else {
+      setProgress(70,'Detectando duplicados...');
+      setTimeout(()=>{
+        ArabelaAnalyzer.detectDuplicates(results);
+        setProgress(88,'Generando dashboard...');
+        setTimeout(()=> finishAnalysis(results), 200);
+      }, 150);
+    }
+  }
+  processChunk();
+}
+
+function finishAnalysis(results){
+  window.appState.analyzedData = results;
+  window.appState.filteredData = results;
+
+  // Detectar nombre de campaña predominante
+  const campCounts = {};
+  results.forEach(r=>{ if(r.CAMPANA) campCounts[r.CAMPANA] = (campCounts[r.CAMPANA]||0)+1; });
+  const campKeys = Object.keys(campCounts).sort((a,b)=> campCounts[b]-campCounts[a]);
+  window.appState.campaign = campKeys.length ? campKeys[0] : 'C-00';
+
+  setProgress(100,'¡Listo!');
+  setTimeout(()=>{
+    document.getElementById('landing').style.opacity = '0';
+    setTimeout(()=>{
+      document.getElementById('landing').style.display = 'none';
+      const dash = document.getElementById('dashboard');
+      dash.classList.add('show');
+      initDashboard();
+      requestAnimationFrame(()=> dash.classList.add('fade-in'));
+    }, 500);
+  }, 300);
+}
+
+/* ============================================================
+   INICIALIZACIÓN DEL DASHBOARD
+   ============================================================ */
+function initDashboard(){
+  document.getElementById('campaignBadge').textContent = window.appState.campaign;
+  setupTabs();
+  setupGlobalFilters();
+  setupTableControls();
+  document.getElementById('downloadBtn').addEventListener('click', downloadReport);
+  document.getElementById('resetFilters').addEventListener('click', ()=>{
+    window.appState.currentFilters = { division:'', estado:'' };
+    document.getElementById('filterDivision').value = '';
+    document.getElementById('filterEstado').value = '';
+    applyGlobalFilters();
+  });
+  applyGlobalFilters();
+}
+
+/* ---------- Navegación por tabs ---------- */
+function setupTabs(){
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('sec-'+btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+
+/* ---------- Filtros globales (División / Estado) ---------- */
+function setupGlobalFilters(){
+  const data = window.appState.analyzedData;
+  const divisions = [...new Set(data.map(r=>r.DIVISION))].sort();
+  const estados = [...new Set(data.map(r=>r.ESTADO))].sort();
+
+  const selDiv = document.getElementById('filterDivision');
+  const selEst = document.getElementById('filterEstado');
+  divisions.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; selDiv.appendChild(o); });
+  estados.forEach(e=>{ const o=document.createElement('option'); o.value=e; o.textContent=e; selEst.appendChild(o); });
+
+  selDiv.addEventListener('change', ()=>{ window.appState.currentFilters.division = selDiv.value; applyGlobalFilters(); });
+  selEst.addEventListener('change', ()=>{ window.appState.currentFilters.estado = selEst.value; applyGlobalFilters(); });
+
+  // Poblar selects de la sección Tabla también
+  const fDiv = document.getElementById('filtDivisionTabla');
+  divisions.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; fDiv.appendChild(o); });
+  const fTipo = document.getElementById('filtTipo');
+  ['DOMICILIO CON NÚMERO','SIN NÚMERO (S/N)','DOMICILIO INCOMPLETO'].forEach(t=>{
+    const o=document.createElement('option'); o.value=t; o.textContent=t; fTipo.appendChild(o);
+  });
+  const fViab = document.getElementById('filtViab');
+  ['ALTA','MEDIA','BAJA'].forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; fViab.appendChild(o); });
+}
+
+function applyGlobalFilters(){
+  const { division, estado } = window.appState.currentFilters;
+  let data = window.appState.analyzedData;
+  if(division) data = data.filter(r=>r.DIVISION === division);
+  if(estado) data = data.filter(r=>r.ESTADO === estado);
+  window.appState.filteredData = data;
+  document.getElementById('filterCount').textContent = data.length + ' registros mostrados';
+  window.appState.tablePage = 1;
+  renderAll();
+}
+
+/* ---------- Render maestro: recalcula stats y vuelve a dibujar todo ---------- */
+function renderAll(){
+  const data = window.appState.filteredData;
+  const stats = computeStats(data);
+  renderKpis(stats);
+  renderCharts(stats);
+  renderBars(stats);
+  renderDivisionSection(stats);
+  renderEstadoSection(stats);
+  renderDuplicatesSection(data);
+  renderTable();
+  renderAlerts(stats, data);
+}
+
+/* ============================================================
+   CÁLCULO DE ESTADÍSTICAS AGREGADAS
+   ============================================================ */
+function computeStats(data){
+  const total = data.length;
+  const conNumero = data.filter(r=>r.TIPO_PROBLEMA==='DOMICILIO CON NÚMERO').length;
+  const sinNumero = data.filter(r=>r.TIPO_PROBLEMA==='SIN NÚMERO (S/N)').length;
+  const incompleto = data.filter(r=>r.TIPO_PROBLEMA==='DOMICILIO INCOMPLETO').length;
+  const duplicados = data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO').length;
+  const grupoDupSet = new Set(data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO').map(r=>r.DIRECCION_CORREGIDA));
+  const viabAlta = data.filter(r=>r.VIABILIDAD==='ALTA').length;
+  const viabMedia = data.filter(r=>r.VIABILIDAD==='MEDIA').length;
+  const viabBaja = data.filter(r=>r.VIABILIDAD==='BAJA').length;
+
+  // Agrupado por división
+  const divisions = {};
+  data.forEach(r=>{
+    const d = r.DIVISION;
+    if(!divisions[d]) divisions[d] = { total:0, conNumero:0, sinNumero:0, incompleto:0, duplicados:0, viabAlta:0 };
+    divisions[d].total++;
+    if(r.TIPO_PROBLEMA==='DOMICILIO CON NÚMERO') divisions[d].conNumero++;
+    if(r.TIPO_PROBLEMA==='SIN NÚMERO (S/N)') divisions[d].sinNumero++;
+    if(r.TIPO_PROBLEMA==='DOMICILIO INCOMPLETO') divisions[d].incompleto++;
+    if(r.DOMICILIO_DUPLICADO==='DUPLICADO') divisions[d].duplicados++;
+    if(r.VIABILIDAD==='ALTA') divisions[d].viabAlta++;
+  });
+
+  // Agrupado por estado
+  const estados = {};
+  data.forEach(r=>{
+    const e = r.ESTADO;
+    if(!estados[e]) estados[e] = { total:0, conNumero:0, sinNumero:0, incompleto:0, duplicados:0, viabAlta:0 };
+    estados[e].total++;
+    if(r.TIPO_PROBLEMA==='DOMICILIO CON NÚMERO') estados[e].conNumero++;
+    if(r.TIPO_PROBLEMA==='SIN NÚMERO (S/N)') estados[e].sinNumero++;
+    if(r.TIPO_PROBLEMA==='DOMICILIO INCOMPLETO') estados[e].incompleto++;
+    if(r.DOMICILIO_DUPLICADO==='DUPLICADO') estados[e].duplicados++;
+    if(r.VIABILIDAD==='ALTA') estados[e].viabAlta++;
+  });
+
+  return { total, conNumero, sinNumero, incompleto, duplicados, gruposDup:grupoDupSet.size,
+           viabAlta, viabMedia, viabBaja, divisions, estados };
+}
+
+/* ---------- Animación de contador numérico ---------- */
+function animateCounter(el, target, duration=600){
+  const start = 0;
+  const startTime = performance.now();
+  function step(now){
+    const progress = Math.min((now-startTime)/duration,1);
+    const val = Math.round(start + (target-start)*progress);
+    el.textContent = val.toLocaleString('es-MX');
+    if(progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function pct(n,total){ return total>0 ? ((n/total)*100).toFixed(1) : '0.0'; }
+
+/* ---------- Render de los 8 KPI cards ---------- */
+function renderKpis(stats){
+  const cards = [
+    { cls:'kpi-c1', label:'Total Cuentas', value:stats.total, sub:'' },
+    { cls:'kpi-c2', label:'Con Número', value:stats.conNumero, sub:pct(stats.conNumero,stats.total)+'% del total' },
+    { cls:'kpi-c3', label:'Sin Número S/N', value:stats.sinNumero, sub:pct(stats.sinNumero,stats.total)+'% gestionar con colonia' },
+    { cls:'kpi-c4', label:'Incompletos', value:stats.incompleto, sub:'Solo MZA o solo LT — No viable' },
+    { cls:'kpi-c5', label:'Duplicados', value:stats.duplicados, sub:stats.gruposDup+' grupos únicos' },
+    { cls:'kpi-c2', label:'Viabilidad Alta', value:stats.viabAlta, sub:pct(stats.viabAlta,stats.total)+'% del total' },
+    { cls:'kpi-c3', label:'Viabilidad Media', value:stats.viabMedia, sub:pct(stats.viabMedia,stats.total)+'% del total' },
+    { cls:'kpi-c4', label:'Viabilidad Baja', value:stats.viabBaja, sub:pct(stats.viabBaja,stats.total)+'% del total' }
+  ];
+  const row = document.getElementById('kpiRow');
+  row.innerHTML = '';
+  cards.forEach(c=>{
+    const div = document.createElement('div');
+    div.className = `card kpi-card ${c.cls}`;
+    div.innerHTML = `<div class="kpi-label">${c.label}</div><div class="kpi-value mono" data-val="${c.value}">0</div><div class="kpi-sub">${c.sub}</div>`;
+    row.appendChild(div);
+  });
+  row.querySelectorAll('.kpi-value').forEach(el=> animateCounter(el, parseInt(el.dataset.val,10)));
+}
+
+/* ---------- Destruye un chart previo si existe ---------- */
+function destroyChart(key){
+  if(window.appState.charts[key]){
+    window.appState.charts[key].destroy();
+    delete window.appState.charts[key];
+  }
+}
+
+/* ---------- Charts de Resumen: doughnuts ---------- */
+function renderCharts(stats){
+  destroyChart('tipo');
+  destroyChart('viab');
+
+  const ctxTipo = document.getElementById('chartTipo').getContext('2d');
+  window.appState.charts.tipo = new Chart(ctxTipo, {
+    type:'doughnut',
+    data:{
+      labels:['Con Número','Sin Número (S/N)','Incompleto'],
+      datasets:[{
+        data:[stats.conNumero, stats.sinNumero, stats.incompleto],
+        backgroundColor:['#10B981','#F59E0B','#EF4444'],
+        borderWidth:0
+      }]
+    },
+    options:{
+      cutout:'62%',
+      plugins:{
+        legend:{ display:true, position:'bottom' },
+        tooltip:{ callbacks:{ label:(ctx)=>{
+          const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+          const v = ctx.raw;
+          return `${ctx.label}: ${v.toLocaleString('es-MX')} (${pct(v,total)}%)`;
+        }}}
+      }
+    }
+  });
+
+  const ctxViab = document.getElementById('chartViab').getContext('2d');
+  window.appState.charts.viab = new Chart(ctxViab, {
+    type:'doughnut',
+    data:{
+      labels:['Alta','Media','Baja'],
+      datasets:[{
+        data:[stats.viabAlta, stats.viabMedia, stats.viabBaja],
+        backgroundColor:['#10B981','#F59E0B','#EF4444'],
+        borderWidth:0
+      }]
+    },
+    options:{
+      cutout:'62%',
+      plugins:{
+        legend:{ display:true, position:'bottom' },
+        tooltip:{ callbacks:{ label:(ctx)=>{
+          const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+          const v = ctx.raw;
+          return `${ctx.label}: ${v.toLocaleString('es-MX')} (${pct(v,total)}%)`;
+        }}}
+      }
+    }
+  });
+}
+
+/* ---------- Barras de progreso CSS: por División y por Estado ---------- */
+function barColorByPct(percent){
+  if(percent >= 85) return '#10B981';
+  if(percent >= 65) return '#F59E0B';
+  return '#EF4444';
+}
+
+function renderBarsGroup(container, groupObj){
+  container.innerHTML = '';
+  const entries = Object.entries(groupObj).sort((a,b)=>b[1].total-a[1].total);
+  entries.forEach(([name, g])=>{
+    const p = parseFloat(pct(g.conNumero, g.total));
+    const color = barColorByPct(p);
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="blabel" title="${name}">${name}</div>
+      <div class="bar-track"><div class="bar-fill" style="background:${color};width:0%;" data-w="${p}"></div></div>
+      <div class="bar-num mono">${g.total}</div>`;
+    container.appendChild(row);
+  });
+  requestAnimationFrame(()=>{
+    container.querySelectorAll('.bar-fill').forEach(el=>{ el.style.width = el.dataset.w + '%'; });
+  });
+}
+
+function renderBars(stats){
+  renderBarsGroup(document.getElementById('barsDivision'), stats.divisions);
+  renderBarsGroup(document.getElementById('barsEstado'), stats.estados);
+}
+
+/* ============================================================
+   SECCIÓN POR DIVISIÓN: gráfica apilada + tabla comparativa
+   ============================================================ */
+let divisionSortState = { col:null, dir:1 };
+
+function renderDivisionSection(stats){
+  destroyChart('divStacked');
+  const labels = Object.keys(stats.divisions);
+  const ctx = document.getElementById('chartDivisionStacked').getContext('2d');
+  window.appState.charts.divStacked = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Con Número', data:labels.map(l=>stats.divisions[l].conNumero), backgroundColor:'rgba(16,185,129,.75)', stack:'s' },
+        { label:'S/N', data:labels.map(l=>stats.divisions[l].sinNumero), backgroundColor:'rgba(245,158,11,.75)', stack:'s' },
+        { label:'Incompleto', data:labels.map(l=>stats.divisions[l].incompleto), backgroundColor:'rgba(239,68,68,.75)', stack:'s' }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ stacked:true, grid:{color:'#1A2236'} }, y:{ stacked:true, grid:{color:'#1A2236'} } },
+      plugins:{ legend:{ display:true, position:'top' } }
+    }
+  });
+
+  renderDivisionTable(stats);
+}
+
+function renderDivisionTable(stats){
+  let entries = Object.entries(stats.divisions);
+  entries = sortEntries(entries, divisionSortState);
+  const table = document.getElementById('tableDivision');
+  const cols = ['División','Total','Con Número','S/N','Incompleto','Duplicados','Viab. Alta','% Alta'];
+  const keys = ['__name','total','conNumero','sinNumero','incompleto','duplicados','viabAlta','__pctAlta'];
+  table.innerHTML = `<thead><tr>${cols.map((c,i)=>`<th data-idx="${i}">${c}</th>`).join('')}</tr></thead>
+    <tbody>${entries.map(([name,g])=>{
+      const pAlta = parseFloat(pct(g.viabAlta,g.total));
+      const pillClass = pAlta>=60?'pill-green':pAlta>=35?'pill-amber':'pill-red';
+      return `<tr>
+        <td>${name}</td><td class="mono">${g.total}</td><td class="mono">${g.conNumero}</td>
+        <td class="mono">${g.sinNumero}</td><td class="mono">${g.incompleto}</td><td class="mono">${g.duplicados}</td>
+        <td class="mono">${g.viabAlta}</td><td><span class="pill ${pillClass}">${pAlta}%</span></td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  table.querySelectorAll('th').forEach((th,idx)=>{
+    th.addEventListener('click', ()=>{
+      divisionSortState = { col:keys[idx], dir: divisionSortState.col===keys[idx] ? -divisionSortState.dir : 1 };
+      renderDivisionTable(stats);
+    });
+  });
+}
+
+function sortEntries(entries, sortState){
+  if(!sortState.col) return entries;
+  return entries.slice().sort((a,b)=>{
+    const [na,ga]=a, [nb,gb]=b;
+    let va, vb;
+    if(sortState.col==='__name'){ va=na; vb=nb; }
+    else if(sortState.col==='__pctAlta'){ va=parseFloat(pct(ga.viabAlta,ga.total)); vb=parseFloat(pct(gb.viabAlta,gb.total)); }
+    else { va=ga[sortState.col]; vb=gb[sortState.col]; }
+    if(typeof va==='string') return va.localeCompare(vb) * sortState.dir;
+    return (va-vb) * sortState.dir;
+  });
+}
+
+/* ============================================================
+   SECCIÓN POR ESTADO: gráfica agrupada + tabla
+   ============================================================ */
+let estadoSortState = { col:null, dir:1 };
+
+function renderEstadoSection(stats){
+  destroyChart('estGrouped');
+  const labels = Object.keys(stats.estados);
+  const ctx = document.getElementById('chartEstadoGrouped').getContext('2d');
+  window.appState.charts.estGrouped = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Con Número', data:labels.map(l=>stats.estados[l].conNumero), backgroundColor:'#10B981' },
+        { label:'S/N', data:labels.map(l=>stats.estados[l].sinNumero), backgroundColor:'#F59E0B' },
+        { label:'Incompleto', data:labels.map(l=>stats.estados[l].incompleto), backgroundColor:'#EF4444' }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ grid:{color:'#1A2236'} }, y:{ grid:{color:'#1A2236'} } },
+      plugins:{ legend:{ display:true, position:'top' } }
+    }
+  });
+
+  renderEstadoTable(stats);
+}
+
+function renderEstadoTable(stats){
+  let entries = Object.entries(stats.estados);
+  entries = sortEntries(entries, estadoSortState);
+  const table = document.getElementById('tableEstado');
+  const cols = ['Estado','Total','Con Número','S/N','Incompleto','% S/N','Duplicados','% Alta Viab.'];
+  const keys = ['__name','total','conNumero','sinNumero','incompleto','__pctSN','duplicados','__pctAlta'];
+  table.innerHTML = `<thead><tr>${cols.map((c,i)=>`<th data-idx="${i}">${c}</th>`).join('')}</tr></thead>
+    <tbody>${entries.map(([name,g])=>{
+      const pSN = parseFloat(pct(g.sinNumero,g.total));
+      const pAlta = parseFloat(pct(g.viabAlta,g.total));
+      return `<tr>
+        <td>${name}</td><td class="mono">${g.total}</td><td class="mono">${g.conNumero}</td>
+        <td class="mono">${g.sinNumero}</td><td class="mono">${g.incompleto}</td>
+        <td class="mono" style="${pSN>20?'color:#FBBF24;font-weight:600;':''}">${pSN}%</td>
+        <td class="mono">${g.duplicados}</td><td class="mono">${pAlta}%</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  table.querySelectorAll('th').forEach((th,idx)=>{
+    th.addEventListener('click', ()=>{
+      estadoSortState = { col:keys[idx], dir: estadoSortState.col===keys[idx] ? -estadoSortState.dir : 1 };
+      renderEstadoTable(stats);
+    });
+  });
+}
+
+/* ============================================================
+   SECCIÓN DUPLICADOS
+   ============================================================ */
+function renderDuplicatesSection(data){
+  const dupRows = data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO');
+  const groups = {};
+  dupRows.forEach(r=>{
+    const key = r.DIRECCION_CORREGIDA;
+    if(!groups[key]) groups[key] = { rows:[], n:0 };
+    groups[key].rows.push(r);
+    groups[key].n = groups[key].rows.length;
+  });
+  const groupList = Object.entries(groups).sort((a,b)=>b[1].n - a[1].n);
+
+  const totalDupCuentas = dupRows.length;
+  const totalGrupos = groupList.length;
+  const maxCuentas = totalGrupos ? groupList[0][1].n : 0;
+  const avgCuentas = totalGrupos ? (totalDupCuentas/totalGrupos).toFixed(1) : '0.0';
+
+  const kpiRow = document.getElementById('dupKpiRow');
+  kpiRow.innerHTML = `
+    <div class="card kpi-card kpi-c5"><div class="kpi-label">Cuentas Duplicadas</div><div class="kpi-value mono">${totalDupCuentas.toLocaleString('es-MX')}</div></div>
+    <div class="card kpi-card kpi-c1"><div class="kpi-label">Grupos Únicos</div><div class="kpi-value mono">${totalGrupos.toLocaleString('es-MX')}</div></div>
+    <div class="card kpi-card kpi-c4"><div class="kpi-label">Máx. Cuentas / Domicilio</div><div class="kpi-value mono">${maxCuentas}</div></div>
+    <div class="card kpi-card kpi-c3"><div class="kpi-label">Promedio Cuentas / Grupo</div><div class="kpi-value mono">${avgCuentas}</div></div>`;
+
+  const top20 = groupList.slice(0,20);
+  const list = document.getElementById('dupList');
+  list.innerHTML = top20.map(([addr,g])=>{
+    const n = g.n;
+    const sample = g.rows[0];
+    const color = n>=10?'#EF4444':n>=5?'#F59E0B':n>=3?'#FBBF24':'#94A3B8';
+    return `<div class="dup-card">
+      <div class="dup-num" style="color:${color};">${n}</div>
+      <div class="dup-info">
+        <div class="dup-addr">${addr || 'SIN DIRECCION'}</div>
+        <div class="dup-meta">${sample.COLONIA || ''} · ${sample.POBLACION || ''} · ${sample.ESTADO || ''} · ${sample.DIVISION || ''}</div>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted);">No se encontraron domicilios duplicados con los filtros actuales.</p>';
+
+  if(groupList.length > 20){
+    list.innerHTML += `<p style="text-align:center;color:var(--muted);font-size:12.5px;margin-top:8px;">Mostrando 20 de ${groupList.length} grupos de duplicados.</p>`;
+  }
+}
+
+/* ============================================================
+   SECCIÓN TABLA: filtros, búsqueda, orden, paginación
+   ============================================================ */
+const PAGE_SIZE = 50;
+let searchDebounceTimer = null;
+
+function setupTableControls(){
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', ()=>{
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(()=>{
+      window.appState.tableFilters.search = searchInput.value.trim().toLowerCase();
+      window.appState.tablePage = 1;
+      renderTable();
+    }, 200);
+  });
+  ['filtTipo','filtViab','filtDivisionTabla','filtDup'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', (e)=>{
+      const map = { filtTipo:'tipo', filtViab:'viab', filtDivisionTabla:'division', filtDup:'dup' };
+      window.appState.tableFilters[map[id]] = e.target.value;
+      window.appState.tablePage = 1;
+      renderTable();
+    });
+  });
+  document.getElementById('clearTableFilters').addEventListener('click', ()=>{
+    window.appState.tableFilters = { search:'', tipo:'', viab:'', division:'', dup:'' };
+    document.getElementById('searchInput').value = '';
+    document.getElementById('filtTipo').value = '';
+    document.getElementById('filtViab').value = '';
+    document.getElementById('filtDivisionTabla').value = '';
+    document.getElementById('filtDup').value = '';
+    window.appState.tablePage = 1;
+    renderTable();
+  });
+}
+
+function getTableFilteredData(){
+  const f = window.appState.tableFilters;
+  let data = window.appState.filteredData;
+  if(f.search){
+    data = data.filter(r =>
+      (r.NOMBRE||'').toLowerCase().includes(f.search) ||
+      (r.NO_DAMA||'').toLowerCase().includes(f.search) ||
+      (r.DIRECCION_CORREGIDA||'').toLowerCase().includes(f.search)
+    );
+  }
+  if(f.tipo) data = data.filter(r=>r.TIPO_PROBLEMA===f.tipo);
+  if(f.viab) data = data.filter(r=>r.VIABILIDAD===f.viab);
+  if(f.division) data = data.filter(r=>r.DIVISION===f.division);
+  if(f.dup) data = data.filter(r=>r.DOMICILIO_DUPLICADO===f.dup);
+  return data;
+}
+
+function pillForTipo(t){
+  if(t==='DOMICILIO CON NÚMERO') return `<span class="pill pill-green">${t}</span>`;
+  if(t==='SIN NÚMERO (S/N)') return `<span class="pill pill-amber">${t}</span>`;
+  return `<span class="pill pill-red">${t}</span>`;
+}
+function pillForViab(v){
+  if(v==='ALTA') return `<span class="pill pill-green">ALTA</span>`;
+  if(v==='MEDIA') return `<span class="pill pill-amber">MEDIA</span>`;
+  return `<span class="pill pill-red">BAJA</span>`;
+}
+function pillForPrioridad(p){
+  if(p.startsWith('P1')) return `<span class="pill pill-green">P1</span>`;
+  if(p.startsWith('P2')) return `<span class="pill pill-amber">P2</span>`;
+  return `<span class="pill pill-red">P3</span>`;
+}
+function pillForDup(d){
+  return d==='DUPLICADO' ? `<span class="pill pill-purple">DUPLICADO</span>` : `<span class="pill pill-blue">UNICO</span>`;
+}
+
+function renderTable(){
+  const filtered = getTableFilteredData();
+  const totalFiltered = filtered.length;
+  const totalAll = window.appState.filteredData.length;
+  document.getElementById('tableCount').textContent = `Mostrando ${totalFiltered.toLocaleString('es-MX')} de ${totalAll.toLocaleString('es-MX')} registros`;
+
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  if(window.appState.tablePage > totalPages) window.appState.tablePage = totalPages;
+  const page = window.appState.tablePage;
+  const startIdx = (page-1) * PAGE_SIZE;
+  const pageRows = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+
+  const tbody = document.getElementById('mainTableBody');
+  tbody.innerHTML = pageRows.map(r=>`
+    <tr>
+      <td class="mono">${r.NO_DAMA}</td>
+      <td>${r.NOMBRE}</td>
+      <td>${r.DIVISION}</td>
+      <td>${r.ZONA}</td>
+      <td>${r.DIRECCION_CORREGIDA}</td>
+      <td class="mono">${r.REFERENCIA}</td>
+      <td>${pillForTipo(r.TIPO_PROBLEMA)}</td>
+      <td>${pillForViab(r.VIABILIDAD)}</td>
+      <td>${pillForPrioridad(r.PRIORIDAD)}</td>
+      <td>${pillForDup(r.DOMICILIO_DUPLICADO)}</td>
+    </tr>`).join('') || `<tr><td colspan="10" style="text-align:center;color:var(--muted);">Sin resultados para los filtros aplicados.</td></tr>`;
+
+  renderPagination(totalPages, page);
+}
+
+function renderPagination(totalPages, current){
+  const cont = document.getElementById('pagination');
+  cont.innerHTML = '';
+  const mkBtn = (label, page, disabled, active)=>{
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (active?' active':'');
+    b.textContent = label;
+    b.disabled = disabled;
+    b.addEventListener('click', ()=>{ window.appState.tablePage = page; renderTable(); });
+    return b;
+  };
+  cont.appendChild(mkBtn('← Anterior', current-1, current<=1, false));
+  const windowSize = 5;
+  let start = Math.max(1, current - Math.floor(windowSize/2));
+  let end = Math.min(totalPages, start + windowSize - 1);
+  start = Math.max(1, end - windowSize + 1);
+  if(start > 1) cont.appendChild(mkBtn('1', 1, false, current===1));
+  if(start > 2){ const s=document.createElement('span'); s.textContent='…'; s.style.color='var(--muted)'; cont.appendChild(s); }
+  for(let p=start;p<=end;p++){ cont.appendChild(mkBtn(String(p), p, false, p===current)); }
+  if(end < totalPages-1){ const s=document.createElement('span'); s.textContent='…'; s.style.color='var(--muted)'; cont.appendChild(s); }
+  if(end < totalPages) cont.appendChild(mkBtn(String(totalPages), totalPages, false, current===totalPages));
+  cont.appendChild(mkBtn('Siguiente →', current+1, current>=totalPages, false));
+}
+
+/* ============================================================
+   SECCIÓN ALERTAS — generadas dinámicamente a partir de los datos
+   ============================================================ */
+function renderAlerts(stats, data){
+  const alerts = [];
+  const total = stats.total;
+
+  // ---------- CRÍTICO ----------
+  const divSN = Object.entries(stats.divisions).map(([d,g])=>({d,g,p:parseFloat(pct(g.sinNumero,g.total))})).sort((a,b)=>b.g.sinNumero-a.g.sinNumero);
+  if(divSN.length && divSN[0].g.sinNumero > 0){
+    alerts.push({nivel:'CRITICO', icon:'🔴', text:`División ${divSN[0].d} tiene ${divSN[0].g.sinNumero} cuentas S/N (${divSN[0].p}%)`});
+  }
+  const dupRows = data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO');
+  if(dupRows.length){
+    const groups = {};
+    dupRows.forEach(r=>{ groups[r.DIRECCION_CORREGIDA] = (groups[r.DIRECCION_CORREGIDA]||0)+1; });
+    const top = Object.entries(groups).sort((a,b)=>b[1]-a[1])[0];
+    if(top) alerts.push({nivel:'CRITICO', icon:'🔴', text:`${top[1]} cuentas comparten el mismo domicilio: ${top[0]}`});
+  }
+  const divInc = Object.entries(stats.divisions).sort((a,b)=>b[1].incompleto-a[1].incompleto)[0];
+  if(divInc && divInc[1].incompleto > 0){
+    alerts.push({nivel:'CRITICO', icon:'🔴', text:`División ${divInc[0]} tiene la mayor cantidad de domicilios incompletos: ${divInc[1].incompleto}`});
+  }
+  Object.entries(stats.estados).forEach(([e,g])=>{
+    const p = parseFloat(pct(g.sinNumero,g.total));
+    if(p > 25) alerts.push({nivel:'CRITICO', icon:'🔴', text:`Estado ${e} supera el 25% de cuentas S/N (${p}%)`});
+  });
+
+  // ---------- ATENCIÓN ----------
+  Object.entries(stats.estados).forEach(([e,g])=>{
+    const p = parseFloat(pct(g.sinNumero,g.total));
+    if(p >= 15 && p <= 25) alerts.push({nivel:'ATENCION', icon:'🟡', text:`Estado ${e} tiene ${p}% de cuentas S/N — vigilar tendencia`});
+  });
+  Object.entries(stats.divisions).forEach(([d,g])=>{
+    const p = parseFloat(pct(g.viabAlta,g.total));
+    if(p < 80) alerts.push({nivel:'ATENCION', icon:'🟡', text:`División ${d} tiene viabilidad ALTA por debajo del 80% (${p}%)`});
+  });
+  if(stats.incompleto > 50){
+    alerts.push({nivel:'ATENCION', icon:'🟡', text:`Hay ${stats.incompleto} cuentas con domicilio incompleto en el total analizado`});
+  }
+
+  // ---------- POSITIVO ----------
+  const bestDiv = Object.entries(stats.divisions).map(([d,g])=>({d,p:parseFloat(pct(g.conNumero,g.total))})).sort((a,b)=>b.p-a.p)[0];
+  if(bestDiv) alerts.push({nivel:'POSITIVO', icon:'🟢', text:`División ${bestDiv.d} tiene el mejor porcentaje de cuentas Con Número (${bestDiv.p}%)`});
+  alerts.push({nivel:'POSITIVO', icon:'🟢', text:`${stats.conNumero.toLocaleString('es-MX')} cuentas (${pct(stats.conNumero,total)}%) están listas para campo (P1 - Inmediata)`});
+  if(stats.gruposDup > 0){
+    alerts.push({nivel:'POSITIVO', icon:'🟢', text:`${stats.gruposDup} grupos de domicilios duplicados representan oportunidad de visita eficiente (varias cuentas en un solo recorrido)`});
+  }
+
+  // ---------- ACCIÓN ----------
+  if(stats.sinNumero > 0){
+    const conColonia = data.filter(r=>r.TIPO_PROBLEMA==='SIN NÚMERO (S/N)' && (r.COLONIA||'').length>5).length;
+    alerts.push({nivel:'ACCION', icon:'🔵', text:`${conColonia.toLocaleString('es-MX')} cuentas S/N tienen colonia conocida → enviar a campo con referencia de colonia`});
+  }
+  if(stats.incompleto > 0){
+    alerts.push({nivel:'ACCION', icon:'🔵', text:`${stats.incompleto.toLocaleString('es-MX')} cuentas incompletas: solicitar MZA/LT faltante a la consejera antes de programar visita`});
+  }
+
+  const cont = document.getElementById('alertsContainer');
+  if(!alerts.length){
+    cont.innerHTML = '<p style="color:var(--muted);">No hay alertas generadas para los filtros actuales.</p>';
+    return;
+  }
+  const clsMap = { CRITICO:'alert-critico', ATENCION:'alert-atencion', POSITIVO:'alert-positivo', ACCION:'alert-accion' };
+  cont.innerHTML = alerts.map(a=>`
+    <div class="alert-card ${clsMap[a.nivel]}">
+      <div class="alert-icon">${a.icon}</div>
+      <div><span class="alert-level">${a.nivel}</span><span class="alert-text">${a.text}</span></div>
+    </div>`).join('');
+}
+
+/* ============================================================
+   EXPORTAR REPORTE — genera un HTML autónomo descargable
+   ============================================================ */
+function buildRulesTable(){
+  return `<table class="rules-table" style="width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;">
+    <thead><tr style="background:#10172A;"><th style="padding:8px;text-align:left;">Regla</th><th style="padding:8px;text-align:left;">Condición</th><th style="padding:8px;text-align:left;">Resultado</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R1</td><td style="padding:8px;border-bottom:1px solid #243054;">Tiene número real de calle (No. distinto de S/N)</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Con Número · P1 Inmediata</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R2</td><td style="padding:8px;border-bottom:1px solid #243054;">S/N pero MZA y LT ambos con valor real</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Con Número · P1 Inmediata</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R3</td><td style="padding:8px;border-bottom:1px solid #243054;">Calle/Andador + MZA real + LT real</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Con Número · P1 Inmediata</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid #243054;">R4</td><td style="padding:8px;border-bottom:1px solid #243054;">Sin número, solo MZA o solo LT (no ambos)</td><td style="padding:8px;border-bottom:1px solid #243054;">Domicilio Incompleto · P3 No Viable</td></tr>
+      <tr><td style="padding:8px;">R5</td><td style="padding:8px;">Sin número, sin MZA ni LT reales</td><td style="padding:8px;">Sin Número (S/N) · P2 Verificar</td></tr>
+    </tbody>
+  </table>`;
+}
+
+function downloadReport(){
+  const data = window.appState.filteredData;
+  const stats = computeStats(data);
+  const now = new Date();
+  const fechaStr = now.toLocaleString('es-MX');
+  const campaign = window.appState.campaign;
+  const fileNameOriginal = window.appState.fileName;
+
+  const dupRows = data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO');
+  const dupGroups = {};
+  dupRows.forEach(r=>{
+    const k = r.DIRECCION_CORREGIDA;
+    if(!dupGroups[k]) dupGroups[k] = [];
+    dupGroups[k].push(r);
+  });
+  const top20Dup = Object.entries(dupGroups).sort((a,b)=>b[1].length-a[1].length).slice(0,20);
+
+  const divRows = Object.entries(stats.divisions).map(([name,g])=>{
+    const pAlta = pct(g.viabAlta,g.total);
+    return `<tr><td>${name}</td><td>${g.total}</td><td>${g.conNumero}</td><td>${g.sinNumero}</td><td>${g.incompleto}</td><td>${g.duplicados}</td><td>${g.viabAlta}</td><td>${pAlta}%</td></tr>`;
+  }).join('');
+
+  const tableRowsHtml = data.slice(0,5000).map(r=>`<tr>
+      <td>${r.NO_DAMA}</td><td>${r.NOMBRE}</td><td>${r.DIVISION}</td><td>${r.ZONA}</td>
+      <td>${r.DIRECCION_CORREGIDA}</td><td>${r.REFERENCIA}</td><td>${r.TIPO_PROBLEMA}</td>
+      <td>${r.VIABILIDAD}</td><td>${r.PRIORIDAD}</td><td>${r.DOMICILIO_DUPLICADO}</td>
+    </tr>`).join('');
+
+  const dupListHtml = top20Dup.map(([addr,rows])=>{
+    const sample = rows[0];
+    return `<div style="display:flex;gap:16px;align-items:center;background:#131929;border:1px solid #243054;border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;min-width:36px;text-align:center;color:${rows.length>=10?'#EF4444':rows.length>=5?'#F59E0B':'#94A3B8'};">${rows.length}</div>
+      <div><div style="font-weight:600;font-size:13.5px;">${addr}</div><div style="font-size:12px;color:#64748B;margin-top:2px;">${sample.COLONIA} · ${sample.POBLACION} · ${sample.ESTADO} · ${sample.DIVISION}</div></div>
+    </div>`;
+  }).join('');
+
+  const alertsBackup = document.getElementById('alertsContainer').innerHTML;
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Reporte Arabela Cobranza — ${campaign}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>
+<style>
+:root{--bg:#0B0F1A;--surface:#131929;--card:#1A2236;--border:#243054;--accent1:#3B82F6;--accent2:#10B981;--accent3:#F59E0B;--accent4:#EF4444;--accent5:#8B5CF6;--text:#E2E8F0;--muted:#64748B;--label:#94A3B8;}
+*{box-sizing:border-box;}body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+header{padding:24px;border-bottom:1px solid var(--border);background:var(--surface);}
+header h1{margin:0 0 4px;font-size:22px;}
+header p{margin:0;color:var(--label);font-size:13px;}
+main{max-width:1300px;margin:0 auto;padding:24px;}
+h2{font-size:16px;border-left:4px solid var(--accent1);padding-left:10px;margin:32px 0 14px;}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));}
+.grid2{display:grid;gap:16px;grid-template-columns:1fr 1fr;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;}
+.kpi-label{font-size:12px;color:var(--label);margin-bottom:6px;}
+.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:#10172A;color:var(--label);text-align:left;padding:9px 10px;font-size:12px;}
+td{padding:8px 10px;border-bottom:1px solid var(--border);}
+.table-scroll{overflow:auto;max-height:500px;border:1px solid var(--border);border-radius:10px;}
+.chart-box{height:280px;}
+input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;margin-bottom:10px;}
+@media(max-width:800px){.grid2{grid-template-columns:1fr;}}
+</style></head>
+<body>
+<header>
+  <h1>Arabela Cobranza — Reporte de Análisis de Domicilios</h1>
+  <p>Campaña: ${campaign} · Archivo origen: ${fileNameOriginal} · Generado: ${fechaStr}</p>
+</header>
+<main>
+  <h2>Resumen Ejecutivo</h2>
+  <div class="grid">
+    <div class="card"><div class="kpi-label">Total Cuentas</div><div class="kpi-value">${stats.total}</div></div>
+    <div class="card"><div class="kpi-label">Con Número</div><div class="kpi-value">${stats.conNumero}</div></div>
+    <div class="card"><div class="kpi-label">Sin Número S/N</div><div class="kpi-value">${stats.sinNumero}</div></div>
+    <div class="card"><div class="kpi-label">Incompletos</div><div class="kpi-value">${stats.incompleto}</div></div>
+    <div class="card"><div class="kpi-label">Duplicados</div><div class="kpi-value">${stats.duplicados}</div></div>
+    <div class="card"><div class="kpi-label">Viabilidad Alta</div><div class="kpi-value">${stats.viabAlta}</div></div>
+    <div class="card"><div class="kpi-label">Viabilidad Media</div><div class="kpi-value">${stats.viabMedia}</div></div>
+    <div class="card"><div class="kpi-label">Viabilidad Baja</div><div class="kpi-value">${stats.viabBaja}</div></div>
+  </div>
+
+  <h2>Reglas de Clasificación Aplicadas</h2>
+  <div class="card">${buildRulesTable()}</div>
+
+  <h2>Gráficas</h2>
+  <div class="grid2">
+    <div class="card"><div class="chart-box"><canvas id="repTipo"></canvas></div></div>
+    <div class="card"><div class="chart-box"><canvas id="repViab"></canvas></div></div>
+  </div>
+
+  <h2>Tabla Comparativa por División</h2>
+  <div class="card"><div class="table-scroll"><table>
+    <thead><tr><th>División</th><th>Total</th><th>Con Número</th><th>S/N</th><th>Incompleto</th><th>Duplicados</th><th>Viab. Alta</th><th>% Alta</th></tr></thead>
+    <tbody>${divRows}</tbody>
+  </table></div></div>
+
+  <h2>Top 20 Domicilios Duplicados</h2>
+  <div class="card">${dupListHtml || '<p style="color:var(--muted);">Sin duplicados.</p>'}</div>
+
+  <h2>Tabla de Datos (búsqueda incluida, máx. 5000 filas)</h2>
+  <div class="card">
+    <input type="text" id="repSearch" placeholder="Buscar por nombre, No. Dama o dirección...">
+    <div class="table-scroll"><table id="repTable">
+      <thead><tr><th>No. Dama</th><th>Nombre</th><th>División</th><th>Zona</th><th>Dirección</th><th>Referencia</th><th>Tipo</th><th>Viab.</th><th>Prior.</th><th>Dup.</th></tr></thead>
+      <tbody>${tableRowsHtml}</tbody>
+    </table></div>
+  </div>
+
+  <h2>Alertas</h2>
+  <div class="card">${alertsBackup}</div>
+</main>
+<script>
+Chart.defaults.color = '#94A3B8';
+Chart.defaults.font.family = 'Inter, sans-serif';
+new Chart(document.getElementById('repTipo').getContext('2d'),{type:'doughnut',data:{labels:['Con Número','Sin Número (S/N)','Incompleto'],datasets:[{data:[${stats.conNumero},${stats.sinNumero},${stats.incompleto}],backgroundColor:['#10B981','#F59E0B','#EF4444'],borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{display:true,position:'bottom'}}}});
+new Chart(document.getElementById('repViab').getContext('2d'),{type:'doughnut',data:{labels:['Alta','Media','Baja'],datasets:[{data:[${stats.viabAlta},${stats.viabMedia},${stats.viabBaja}],backgroundColor:['#10B981','#F59E0B','#EF4444'],borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{display:true,position:'bottom'}}}});
+document.getElementById('repSearch').addEventListener('input', function(e){
+  var q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#repTable tbody tr').forEach(function(tr){
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+<\/script>
+</body></html>`;
+
+  const blob = new Blob([html], { type:'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = now.toISOString().slice(0,10);
+  a.href = url;
+  a.download = `reporte_arabela_${campaign}_${dateStr}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
+
