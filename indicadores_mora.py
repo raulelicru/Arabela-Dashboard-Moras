@@ -200,10 +200,16 @@ def tab_indicadores(df: pd.DataFrame):
     detected = _detect_columns(df)
     cols = _column_picker(df, detected)
 
+    def _to_num(series):
+        return pd.to_numeric(
+            series.astype(str).str.replace(r"[$,\s]", "", regex=True).str.replace("nan", ""),
+            errors="coerce",
+        ).fillna(0)
+
     df = df.copy()
-    df["__saldo__"] = pd.to_numeric(df[cols["saldo"]], errors="coerce").fillna(0) if cols.get("saldo") else 0.0
+    df["__saldo__"] = _to_num(df[cols["saldo"]]) if cols.get("saldo") else 0.0
     if cols.get("pago"):
-        df["__pago__"] = pd.to_numeric(df[cols["pago"]], errors="coerce").fillna(0)
+        df["__pago__"] = _to_num(df[cols["pago"]])
 
     total_cuentas = len(df)
     saldo_asignado = df["__saldo__"].sum()
