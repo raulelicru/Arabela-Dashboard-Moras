@@ -425,21 +425,19 @@ def tab_indicadores(df: pd.DataFrame):
             st.success(f"No hay unidades por debajo del {umbral}% de recuperación.")
 
 
-def _render_indicadores_standalone():
+def _indicadores_uploader():
+    uploaded = st.file_uploader(
+        "Archivo .xlsx / .xls", type=["xlsx", "xls"], key="ind_uploader", label_visibility="collapsed"
+    )
+    if uploaded is not None and st.session_state.get("ind_file_name") != uploaded.name:
+        st.session_state["ind_df"] = read_excel_safe(uploaded)
+        st.session_state["ind_file_name"] = uploaded.name
+
+
+def _render_indicadores_results():
     st.markdown(INDICADORES_CSS, unsafe_allow_html=True)
-    _banner("📊", "Indicadores de Mora", "Dashboard de cobranza y recuperación de cartera")
-
-    with st.expander("📂 Cargar archivo Excel — Cartera General", expanded="ind_df" not in st.session_state):
-        uploaded = st.file_uploader("Archivo .xlsx / .xls", type=["xlsx", "xls"], key="ind_uploader")
-
-    if uploaded is not None:
-        if st.session_state.get("ind_file_name") != uploaded.name:
-            st.session_state["ind_df"] = read_excel_safe(uploaded)
-            st.session_state["ind_file_name"] = uploaded.name
-
     df = st.session_state.get("ind_df")
     if df is None:
-        st.info("Carga un archivo Excel para ver los indicadores de mora.")
+        st.info("Sube el archivo de cartera general arriba para ver los indicadores de mora.")
         return
-
     tab_indicadores(df)
