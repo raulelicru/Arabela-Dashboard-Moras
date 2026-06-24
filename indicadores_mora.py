@@ -396,20 +396,26 @@ def tab_indicadores(df: pd.DataFrame):
             bottom10 = g.sort_values("PctRec", ascending=True).head(10)
             c1, c2 = st.columns(2)
             with c1:
+                top10s = top10.sort_values("PctRec", ascending=True)
                 fig = go.Figure(go.Bar(
-                    x=top10["PctRec"], y=top10["zona"], orientation="h",
+                    x=top10s["PctRec"], y=top10s["zona"].astype(str), orientation="h",
                     marker_color=COLORS["success"],
+                    text=top10s["PctRec"].map(lambda v: f"{v:.1f}%"), textposition="outside",
                 ))
                 fig.update_layout(**PLOTLY_LAYOUT, title="Top 10 Zonas (% Recuperación)",
-                                   xaxis=dict(**_AXIS_DEFAULTS), yaxis=dict(**_AXIS_DEFAULTS, autorange="reversed"))
+                                   xaxis=dict(**_AXIS_DEFAULTS, range=[0, max(top10s["PctRec"].max()*1.3, 1)]),
+                                   yaxis=dict(**_AXIS_DEFAULTS, type="category"))
                 _chart_card(fig)
             with c2:
+                bottom10s = bottom10.sort_values("PctRec", ascending=False)
                 fig = go.Figure(go.Bar(
-                    x=bottom10["PctRec"], y=bottom10["zona"], orientation="h",
+                    x=bottom10s["PctRec"], y=bottom10s["zona"].astype(str), orientation="h",
                     marker_color=COLORS["danger"],
+                    text=bottom10s["PctRec"].map(lambda v: f"{v:.1f}%"), textposition="outside",
                 ))
                 fig.update_layout(**PLOTLY_LAYOUT, title="Bottom 10 Zonas (% Recuperación)",
-                                   xaxis=dict(**_AXIS_DEFAULTS), yaxis=dict(**_AXIS_DEFAULTS, autorange="reversed"))
+                                   xaxis=dict(**_AXIS_DEFAULTS, range=[0, max(bottom10s["PctRec"].max()*1.3, 1)]),
+                                   yaxis=dict(**_AXIS_DEFAULTS, type="category"))
                 _chart_card(fig)
 
     with sub_tabs[3]:
