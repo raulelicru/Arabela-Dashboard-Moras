@@ -109,7 +109,7 @@ COLUMN_CANDIDATES = {
     "segmento": ["morosidad", "mora", "segmento"],
     "saldo": ["saldodama", "saldo"],
     "pago": ["pago"],
-    "visita": ["gestion", "visitas gestor", "visita"],
+    "visita": ["vistas gestor", "visitas gestor", "gestion", "visita"],
     "dictaminacion": ["dictaminacion", "dictam"],
     "situacion": ["descsituacion", "situacion", "estatus"],
 }
@@ -220,7 +220,7 @@ def tab_indicadores(df: pd.DataFrame):
     pct_cuentas_rec = (cuentas_recuperadas / total_cuentas * 100) if total_cuentas else 0.0
 
     visita_col = cols.get("visita")
-    visitas_realizadas = int(df[visita_col].astype(str).str.strip().replace("nan", "").ne("").sum()) if visita_col else 0
+    visitas_realizadas = int(_to_num(df[visita_col]).sum()) if visita_col else 0
     pct_visitas = (visitas_realizadas / total_cuentas * 100) if total_cuentas else 0.0
 
     promesas = 0
