@@ -111,6 +111,7 @@ COLUMN_CANDIDATES = {
     "pago": ["pago"],
     "visita": ["vistas gestor", "visitas gestor", "gestion", "visita"],
     "promesa": ["dictaminacion de llamada", "dictam llamada", "dictaminacion llamada"],
+    "contacto": ["estatus de llamada", "estatus llamada", "estatusllamada"],
     "dictaminacion": ["dictaminacion", "dictam"],
     "situacion": ["descsituacion", "situacion", "estatus"],
 }
@@ -230,7 +231,10 @@ def tab_indicadores(df: pd.DataFrame):
     ) if promesa_col else 0
     pct_promesas = (promesas / total_cuentas * 100) if total_cuentas else 0.0
 
-    contacto_efectivo = visitas_realizadas + promesas
+    contacto_col = cols.get("contacto")
+    contacto_efectivo = int(
+        df[contacto_col].astype(str).str.strip().replace("nan", "").ne("").sum()
+    ) if contacto_col else visitas_realizadas + promesas
     pct_contacto = (contacto_efectivo / total_cuentas * 100) if total_cuentas else 0.0
 
     df["__estatus__"] = _derive_estatus(df, cols)
