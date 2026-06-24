@@ -9,6 +9,16 @@ from indicadores_mora import _banner, _indicadores_uploader, _render_indicadores
 
 st.set_page_config(page_title="Arabela Cobranza", layout="wide")
 
+# ── Header con logo ─────────────────────────────────────────────────────────
+logo_path = pathlib.Path(__file__).parent / "logo_crz.png"
+hcol1, hcol2 = st.columns([1, 11])
+with hcol1:
+    st.image(str(logo_path), width=64)
+with hcol2:
+    st.markdown("**CONSULTORES CRZ**  \nArabela Cobranza — Análisis de Domicilios e Indicadores de Mora")
+
+st.divider()
+
 # ── Sección de carga ────────────────────────────────────────────────────────
 st.markdown("### Sube tus archivos Excel")
 st.caption("Cada sección usa un archivo distinto según lo que necesites analizar.")
