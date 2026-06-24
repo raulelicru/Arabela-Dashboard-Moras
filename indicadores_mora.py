@@ -134,6 +134,8 @@ COLUMN_LABELS = {
     "saldo": "Saldo Asignado",
     "pago": "Pago Aplicado",
     "visita": "Visita / Resultado",
+    "promesa": "Promesas (Dictam. Llamada)",
+    "contacto": "Contacto Efectivo (Estatus)",
     "dictaminacion": "Dictaminación",
     "situacion": "Situación",
 }
