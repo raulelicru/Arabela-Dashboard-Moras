@@ -96,7 +96,7 @@ _USERS = {
     "Raul Elizalde":          "raulelicru@gmail.com",
     "Ángeles Cruz":           "angeleselicru@gmail.com",
     "Claudia Vallejo":        "claudia.vallejo@cgconsultoresjuridicos.mx",
-    "Claudia Cruz":           "pattycruzguzman@gmail.com",
+    "Patty Cruz":             "pattycruzguzman@gmail.com",
     "Lourdes Martinez":       "lourdes.martinez@arabela.com",
     "Eduardo Perez":          "eduardo.perez@arabela.com",
     "Jenifer Cravioto":       "jenifer.cravioto@arabela.com",
