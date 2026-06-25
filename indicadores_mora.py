@@ -298,7 +298,8 @@ def tab_indicadores(df: pd.DataFrame):
             if g is None:
                 st.info("Configura la columna de Campaña para ver este gráfico.")
             else:
-                g = g.sort_values("campania")
+                g["campania"] = pd.to_numeric(g["campania"], errors="coerce").fillna(g["campania"])
+                g = g.sort_values("campania", key=lambda col: col.astype(str))
                 try:
                     g = g[pd.to_numeric(g["campania"], errors="coerce") >= 9]
                 except Exception:
