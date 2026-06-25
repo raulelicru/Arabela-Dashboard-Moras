@@ -137,8 +137,9 @@ if dom_data:
   for(var i=0;i<bc.length;i++){bn[i]=bc.charCodeAt(i);}
   window._arabela_file=new File([bn],fname,
     {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  window._is_admin=%s;
 })();
-</script>""" % (json.dumps(b64), json.dumps(meta["filename"]))
+</script>""" % (json.dumps(b64), json.dumps(meta["filename"]), json.dumps(is_admin()))
     html = html.replace("<body>", "<body>" + preload, 1)
     st.caption(f"📁 Domicilios: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
     components.html(html, height=1400, scrolling=True)

@@ -527,7 +527,10 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
       <button class="tab-btn" data-tab="tabla" style="color:#fff">Tabla</button>
       <button class="tab-btn" data-tab="alertas" style="color:#fff">Alertas</button>
     </div>
-    <button class="btn btn-accent" id="downloadBtn">⬇ Descargar Reporte</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-accent" id="downloadBtn">⬇ Reporte HTML</button>
+      <button class="btn btn-accent" id="excelBtn" style="display:none;background:linear-gradient(135deg,#166534,#16a34a);color:#fff;">📊 Excel</button>
+    </div>
   </nav>
 
   <div class="filterbar">
@@ -1848,6 +1851,74 @@ document.getElementById('repSearch').addEventListener('input', function(e){
 if (window._arabela_file) {
   progressWrap.classList.add('show');
   processExcelFile(window._arabela_file);
+}
+
+// Mostrar botón Excel solo para admins
+if (window._is_admin) {
+  const excelBtn = document.getElementById('excelBtn');
+  if (excelBtn) excelBtn.style.display = '';
+  if (excelBtn) excelBtn.addEventListener('click', exportToExcel);
+}
+
+function exportToExcel() {
+  const data = window.appState.analyzedData;
+  if (!data || !data.length) { alert('No hay datos analizados.'); return; }
+
+  const stats = computeStats(data);
+  const wb = XLSX.utils.book_new();
+  const camp = window.appState.campaign;
+  const fname = window.appState.fileName.replace(/\.[^.]+$/, '');
+
+  // ── Hoja 1: Resumen ──────────────────────────────────────────
+  const total = data.length;
+  const conNum = data.filter(r=>r.TIPO_PROBLEMA==='SIN_PROBLEMA'||r.TIPO_PROBLEMA==='INCOMPLETO'?false:r.CON_NUMERO).length;
+  const dupCount = data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO').length;
+  const viabAlta = data.filter(r=>r.VIABILIDAD==='ALTA').length;
+  const resumen = [
+    ['Reporte Arabela Cobranza', ''],
+    ['Campaña', camp],
+    ['Archivo', fname],
+    ['Fecha', new Date().toLocaleString('es-MX')],
+    ['', ''],
+    ['Métrica', 'Valor'],
+    ['Total registros', total],
+    ['Con número', data.filter(r=>r.CON_NUMERO).length],
+    ['Sin número', data.filter(r=>!r.CON_NUMERO).length],
+    ['Incompletos', data.filter(r=>r.TIPO_PROBLEMA==='INCOMPLETO').length],
+    ['Duplicados', dupCount],
+    ['Viabilidad Alta', viabAlta],
+    ['% Viabilidad Alta', total ? ((viabAlta/total)*100).toFixed(1)+'%' : '0%'],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), 'Resumen');
+
+  // ── Hoja 2: Por División ──────────────────────────────────────
+  const divRows = [['División','Total','Con Número','Sin Número','Incompletos','Duplicados','Viab Alta','% Viab Alta']];
+  Object.entries(stats.divisions).forEach(([name,g])=>{
+    divRows.push([name, g.total, g.conNumero, g.sinNumero, g.incompleto, g.duplicados, g.viabAlta,
+      g.total ? ((g.viabAlta/g.total)*100).toFixed(1)+'%' : '0%']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(divRows), 'Por División');
+
+  // ── Hoja 3: Por Estado ───────────────────────────────────────
+  const estRows = [['Estado','Total','Con Número','Sin Número','Incompletos','Duplicados','Viab Alta','% Viab Alta']];
+  Object.entries(stats.estados).forEach(([name,g])=>{
+    estRows.push([name, g.total, g.conNumero, g.sinNumero, g.incompleto, g.duplicados, g.viabAlta,
+      g.total ? ((g.viabAlta/g.total)*100).toFixed(1)+'%' : '0%']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(estRows), 'Por Estado');
+
+  // ── Hoja 4: Duplicados ────────────────────────────────────────
+  const dupData = data.filter(r=>r.DOMICILIO_DUPLICADO==='DUPLICADO');
+  const dupCols = [['No Dama','Nombre','División','Zona','Dirección Corregida','Colonia','Población','Estado','Tipo Problema','Viabilidad']];
+  dupData.forEach(r=>dupCols.push([r.NO_DAMA,r.NOMBRE,r.DIVISION,r.ZONA,r.DIRECCION_CORREGIDA,r.COLONIA,r.POBLACION,r.ESTADO,r.TIPO_PROBLEMA,r.VIABILIDAD]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dupCols), 'Duplicados');
+
+  // ── Hoja 5: Tabla Completa ────────────────────────────────────
+  const tablaCols = [['No Dama','Nombre','División','Zona','Dirección Corregida','Colonia','Población','Estado','Referencia','Tipo Problema','Viabilidad','Prioridad','Duplicado']];
+  data.forEach(r=>tablaCols.push([r.NO_DAMA,r.NOMBRE,r.DIVISION,r.ZONA,r.DIRECCION_CORREGIDA,r.COLONIA,r.POBLACION,r.ESTADO,r.REFERENCIA,r.TIPO_PROBLEMA,r.VIABILIDAD,r.PRIORIDAD,r.DOMICILIO_DUPLICADO]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tablaCols), 'Tabla Completa');
+
+  XLSX.writeFile(wb, `Reporte_Arabela_${camp}_${fname}.xlsx`);
 }
 </script>
 </body>
