@@ -43,6 +43,10 @@ st.divider()
 
 # ── Gestión de archivos (solo Admin) ─────────────────────────────────────────
 if is_admin():
+    if err := st.session_state.pop("_delete_error", None):
+        st.error(f"❌ Error al eliminar: {err}")
+    if err := st.session_state.pop("_upload_error", None):
+        st.error(f"❌ Error al subir: {err}")
     st.markdown("### Gestión de Archivos")
     col1, col2 = st.columns(2)
 
@@ -69,8 +73,10 @@ if is_admin():
                     c1, c2 = st.columns([4, 1])
                     c1.caption(f"📄 {u['filename']} · {u['uploaded_at'][:10]}")
                     if c2.button("🗑️", key=f"del_dom_{u['id']}", help="Eliminar"):
-                        delete_upload(sb, "domicilios_uploads", u["id"])
-                        st.rerun()
+                        with st.spinner("Eliminando..."):
+                            ok = delete_upload(sb, "domicilios_uploads", u["id"])
+                        if ok:
+                            st.rerun()
 
     with col2:
         with st.container(border=True):
@@ -95,8 +101,10 @@ if is_admin():
                     c1, c2 = st.columns([4, 1])
                     c1.caption(f"📄 {u['filename']} · {u['uploaded_at'][:10]}")
                     if c2.button("🗑️", key=f"del_cart_{u['id']}", help="Eliminar"):
-                        delete_upload(sb, "cartera_uploads", u["id"])
-                        st.rerun()
+                        with st.spinner("Eliminando..."):
+                            ok = delete_upload(sb, "cartera_uploads", u["id"])
+                        if ok:
+                            st.rerun()
 
     st.divider()
 

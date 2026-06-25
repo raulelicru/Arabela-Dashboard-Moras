@@ -27,12 +27,13 @@ def _storage_upload(sb: Client, path: str, file_bytes: bytes) -> bool:
                 "content-type": (
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ),
-                "upsert": "false",
+                "upsert": False,
             },
         )
         return True
     except Exception as e:
-        st.error(f"Error al subir archivo al almacenamiento: {e}")
+        st.session_state["_upload_error"] = str(e)
+        return False
         return False
 
 
@@ -139,11 +140,12 @@ def list_uploads(sb: Client, table: str) -> list:
         return []
 
 
-def delete_upload(sb: Client, table: str, upload_id: str):
+def delete_upload(sb: Client, table: str, upload_id: str) -> bool:
     try:
         sb.table(table).update({"is_active": False}).eq("id", upload_id).execute()
-        # Limpiar caché para forzar recarga
         cache_key = "_cartera_cache" if table == "cartera_uploads" else "_domicilios_cache"
         st.session_state.pop(cache_key, None)
+        return True
     except Exception as e:
-        st.error(f"Error al eliminar archivo: {e}")
+        st.session_state["_delete_error"] = str(e)
+        return False
