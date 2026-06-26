@@ -1,11 +1,20 @@
 """Dashboard de Indicadores de Mora (cobranza / recuperación de cartera)."""
 
+import unicodedata
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from auth import is_admin
+
+
+def _norm(s: str) -> str:
+    """Lowercase + strip accents for fuzzy column matching."""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', s.lower())
+        if unicodedata.category(c) != 'Mn'
+    )
 
 COLORS = {
     "primary": "#1a3c6e", "accent": "#3b82f6", "success": "#10b981",
@@ -49,20 +58,27 @@ _BOOL_COL_PATTERNS = ("si/no", "si_no", "sino", " si ", " no ", "s/n")
 
 def _find_col(df: pd.DataFrame, candidates: list, skip_bool: bool = False) -> str | None:
     lower_cols = {c.lower(): c for c in df.columns}
+    norm_cols  = {_norm(c): c for c in df.columns}
 
     def _is_bool_col(key: str) -> bool:
         return skip_bool and any(p in key for p in _BOOL_COL_PATTERNS)
 
     for cand in candidates:
-        if cand in lower_cols and not _is_bool_col(cand):
-            return lower_cols[cand]
+        nc = _norm(cand)
+        # 1. Exact match (accent-normalized)
+        if nc in norm_cols and not _is_bool_col(_norm(norm_cols[nc])):
+            return norm_cols[nc]
     for cand in candidates:
-        for key, real in lower_cols.items():
-            if key.startswith(cand) and not _is_bool_col(key):
+        nc = _norm(cand)
+        # 2. Starts-with match
+        for nk, real in norm_cols.items():
+            if nk.startswith(nc) and not _is_bool_col(nk):
                 return real
     for cand in candidates:
-        for key, real in lower_cols.items():
-            if cand in key and not _is_bool_col(key):
+        nc = _norm(cand)
+        # 3. Substring match
+        for nk, real in norm_cols.items():
+            if nc in nk and not _is_bool_col(nk):
                 return real
     return None
 
@@ -571,16 +587,24 @@ def tab_indicadores(df: pd.DataFrame):
         with sub[3]:
             _banner("📋", "Dictaminación y Visitas", "Resultados de llamadas (Col. AM) y visitas de gestor (Col. AO)")
 
-            dictam_col = cols.get("promesa")
+            # Col AM: "Dictaminacion de llamada" — usar promesa o dictaminacion como fallback
+            dictam_col = cols.get("promesa") or cols.get("dictaminacion")
             visita_col_real = cols.get("visita")
 
-            _section("Dictaminación de Llamadas")
-            c1, c2 = st.columns(2)
-            with c1:
-                if dictam_col:
-                    raw = df[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
-                    raw = raw[raw.str.lower() != "nan"]
-                    top10_d = raw.value_counts().head(10).sort_values()
+            if not dictam_col and not visita_col_real:
+                st.info("No se detectó la columna de Dictaminación (Col. AM) ni Visitas Gestor (Col. AO). "
+                        "Usa el panel ⚙️ Ajustar columnas para asignarlas manualmente.")
+
+            if dictam_col:
+                raw_d = df[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
+                raw_d = raw_d[~raw_d.str.lower().isin(["nan", "none", ""])]
+                all_counts = raw_d.value_counts()
+                top5_vals  = all_counts.head(5).index.tolist()
+
+                _section("Distribución de Dictaminaciones")
+                c1, c2 = st.columns(2)
+                with c1:
+                    top10_d = all_counts.head(10).sort_values()
                     fig = go.Figure(go.Bar(
                         x=top10_d.values, y=top10_d.index, orientation="h",
                         marker_color=COLORS["primary"],
@@ -589,20 +613,14 @@ def tab_indicadores(df: pd.DataFrame):
                     fig.update_layout(
                         **PLOTLY_LAYOUT, title="Top 10 Dictaminaciones de Llamada",
                         xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas",
-                                   range=[0, top10_d.max() * 1.35]),
+                                   range=[0, top10_d.max() * 1.4]),
                         yaxis=dict(**_AXIS_DEFAULTS),
                         height=max(300, len(top10_d) * 32 + 90),
                     )
                     _chart_card(fig)
-                else:
-                    st.info("Configura la columna Dictam. Llamada (Col. AM) para ver este gráfico.")
-
-            with c2:
-                if dictam_col:
-                    all_d = df[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
-                    all_d = all_d[all_d.str.lower() != "nan"].value_counts()
-                    top6 = all_d.head(6)
-                    otros = all_d[6:].sum()
+                with c2:
+                    top6 = all_counts.head(6)
+                    otros = all_counts[6:].sum()
                     if otros > 0:
                         top6 = pd.concat([top6, pd.Series({"Otros": otros})])
                     fig = go.Figure(go.Pie(
@@ -611,10 +629,48 @@ def tab_indicadores(df: pd.DataFrame):
                         textposition="outside",
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Distribución de Dictaminaciones",
+                        **PLOTLY_LAYOUT, title="Distribución General de Dictaminaciones",
                         legend=dict(orientation="h", yanchor="top", y=-0.1),
                     )
                     _chart_card(fig)
+
+                def _dictam_geo_chart(geo_key, title):
+                    geo_col = cols.get(geo_key)
+                    if not geo_col or geo_col not in df.columns:
+                        st.info(f"Sin columna de {geo_key.title()}.")
+                        return
+                    df2 = df[[dictam_col, geo_col]].copy()
+                    df2["__d__"] = df2[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
+                    df2 = df2[df2["__d__"].isin(top5_vals)]
+                    cross = df2.groupby([geo_col, "__d__"]).size().reset_index(name="Cuentas")
+                    cross.columns = [geo_key, "Dictaminacion", "Cuentas"]
+                    if len(cross) == 0:
+                        st.info("Sin datos suficientes.")
+                        return
+                    fig = px.bar(cross, x=geo_key, y="Cuentas", color="Dictaminacion",
+                                 barmode="stack", text="Cuentas",
+                                 labels={geo_key: geo_key.title(), "Cuentas": "Cuentas",
+                                         "Dictaminacion": "Dictaminación"},
+                                 title=title)
+                    fig.update_traces(textposition="inside", textfont_size=10)
+                    fig.update_layout(
+                        **PLOTLY_LAYOUT,
+                        xaxis=dict(**_AXIS_DEFAULTS, title=geo_key.title()),
+                        yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                        legend=dict(title="Dictaminación", orientation="h",
+                                    yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        height=420,
+                    )
+                    _chart_card(fig)
+
+                _section("Dictaminaciones por Geografía (Top 5 resultados)")
+                c1, c2 = st.columns(2)
+                with c1:
+                    _dictam_geo_chart("ruta", "Dictaminaciones por Ruta")
+                with c2:
+                    _dictam_geo_chart("division", "Dictaminaciones por División")
+
+                _dictam_geo_chart("zona", "Dictaminaciones por Zona")
 
             _section("Resultados de Visitas de Gestor")
             if visita_col_real:
@@ -622,8 +678,8 @@ def tab_indicadores(df: pd.DataFrame):
                 visited  = ~vis_vals.str.lower().isin(["", "nan", "none", "0", "0.0"])
                 total_vis = int(visited.sum())
                 if total_vis > 0:
-                    vc = vis_vals[visited].value_counts()
-                    vp = (vc / total_vis * 100).round(1)
+                    vc  = vis_vals[visited].value_counts()
+                    vp  = (vc / total_vis * 100).round(1)
                     vdf = pd.DataFrame({"Resultado": vc.index, "Cuentas": vc.values,
                                         "Pct": vp.values}).head(15)
                     vdf = vdf.sort_values("Cuentas")
@@ -635,7 +691,7 @@ def tab_indicadores(df: pd.DataFrame):
                     ))
                     fig.update_layout(
                         **PLOTLY_LAYOUT,
-                        title=f"Resultados de Visitas — % del total de visitas ({total_vis:,})",
+                        title=f"Resultados de Visitas — % del total ({total_vis:,} visitas)",
                         xaxis=dict(**_AXIS_DEFAULTS, title="% del Total de Visitas",
                                    range=[0, min(vdf["Pct"].max() * 1.45, 100)]),
                         yaxis=dict(**_AXIS_DEFAULTS),
