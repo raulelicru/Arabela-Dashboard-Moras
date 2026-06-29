@@ -288,6 +288,22 @@ def _hbar(g, x_col, y_col, title, x_title="", color_fn=None, height_per_row=26):
     return fig
 
 
+def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel"):
+    """Muestra dataframe + botón de descarga Excel."""
+    import io
+    st.dataframe(df_show, use_container_width=True, hide_index=True)
+    buf = io.BytesIO()
+    df_show.to_excel(buf, index=False, engine="openpyxl")
+    buf.seek(0)
+    st.download_button(
+        label=btn_label,
+        data=buf,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key=f"dl_{filename}",
+    )
+
+
 def tab_indicadores(df: pd.DataFrame):
     detected = _detect_columns(df)
     cols = _column_picker(df, detected)
@@ -301,6 +317,26 @@ def tab_indicadores(df: pd.DataFrame):
     df = df.copy()
     df["__saldo__"] = _to_num(df[cols["saldo"]]) if cols.get("saldo") else 0.0
     df["__pago__"] = _to_num(df[cols["pago"]]) if cols.get("pago") else 0.0
+
+    # ── Filtro global de Campaña ──────────────────────────────────────────────
+    camp_col = cols.get("campania")
+    if camp_col and camp_col in df.columns:
+        raw_camps = df[camp_col].dropna().astype(str).unique().tolist()
+        try:
+            all_camps = sorted(raw_camps, key=lambda x: float(x) if x.replace(".", "").isdigit() else x)
+        except Exception:
+            all_camps = sorted(raw_camps)
+        with st.container():
+            sel = st.multiselect(
+                "🗓️ Campaña (Col. O) — filtra todo el dashboard",
+                options=all_camps,
+                default=[],
+                placeholder="Mostrando todas las campañas",
+                key="camp_filter_global",
+            )
+        if sel:
+            df = df[df[camp_col].astype(str).isin(sel)]
+            st.caption(f"Filtrando por campaña(s): **{', '.join(sel)}** — {len(df):,} registros")
 
     total_cuentas = len(df)
     saldo_asignado = df["__saldo__"].sum()
@@ -402,6 +438,16 @@ def tab_indicadores(df: pd.DataFrame):
                     )
                     _chart_card(fig)
 
+            g_all_camp = _grp(df, "campania", cols)
+            if g_all_camp is not None:
+                g_all_camp = g_all_camp.sort_values("campania", key=lambda c: c.astype(str))
+                tabla_camp = g_all_camp[["campania", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
+                tabla_camp["Asignado"] = tabla_camp["Asignado"].apply(fmt_currency)
+                tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
+                tabla_camp["PctRec"]   = tabla_camp["PctRec"].apply(lambda v: f"{v:.1f}%")
+                tabla_camp.columns = ["Campaña", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
+                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx")
+
         # ── Por Segmento ──────────────────────────────────────────────────────
         with sub[1]:
             _banner("📊", "Por Segmento de Mora", "Desempeño de recuperación por nivel de morosidad")
@@ -478,6 +524,14 @@ def tab_indicadores(df: pd.DataFrame):
                                                   yanchor="bottom", y=1.02, xanchor="right", x=1))
                     _chart_card(fig)
 
+                _section("Tabla por Segmento")
+                tabla_seg = g_seg[["segmento", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
+                tabla_seg["Asignado"] = tabla_seg["Asignado"].apply(fmt_currency)
+                tabla_seg["Pagado"]   = tabla_seg["Pagado"].apply(fmt_currency)
+                tabla_seg["PctRec"]   = tabla_seg["PctRec"].apply(lambda v: f"{v:.1f}%")
+                tabla_seg.columns = ["Segmento", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
+                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx")
+
                 _section("Recuperación por Zona — todas las zonas")
                 g_zona = _grp(df, "zona", cols)
                 if g_zona is not None:
@@ -487,7 +541,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
                     tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    st.dataframe(tabla, use_container_width=True, hide_index=True)
+                    _df_excel(tabla, "recuperacion_por_zona.xlsx")
 
         # ── Gestión Damas ─────────────────────────────────────────────────────
         with sub[2]:
@@ -581,7 +635,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla = g_c_zona[["zona", "Total", "Contacto", "NoContacto", "PctContacto"]].copy()
                     tabla["PctContacto"] = tabla["PctContacto"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Total", "Contacto", "No Contacto", "% Contacto"]
-                    st.dataframe(tabla, use_container_width=True, hide_index=True)
+                    _df_excel(tabla, "contacto_por_zona.xlsx")
 
         # ── Dictaminación ─────────────────────────────────────────────────────
         with sub[3]:
@@ -726,7 +780,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
                     tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = [label, "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    st.dataframe(tabla, use_container_width=True, hide_index=True)
+                    _df_excel(tabla, f"alertas_{col_key}.xlsx")
             if not any_alert:
                 st.success(f"✅ Todas las unidades superan el {umbral}% de recuperación.")
 
@@ -828,7 +882,7 @@ def tab_indicadores(df: pd.DataFrame):
             tabla_sit = sit_counts.reset_index()
             tabla_sit.columns = ["Situación", "Cuentas"]
             tabla_sit["% del Total"] = (tabla_sit["Cuentas"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
-            st.dataframe(tabla_sit, use_container_width=True, hide_index=True)
+            _df_excel(tabla_sit, "situacion_domicilio.xlsx")
 
 
 def _indicadores_uploader():
