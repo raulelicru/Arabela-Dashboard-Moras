@@ -288,6 +288,39 @@ def _hbar(g, x_col, y_col, title, x_title="", color_fn=None, height_per_row=26):
     return fig
 
 
+CAMP_COLORS = ["#1a3c6e", "#3b82f6", "#10b981", "#f59e0b"]
+
+
+def _last4_camps(df: pd.DataFrame, cols: dict) -> list:
+    """Retorna las últimas 4 campañas disponibles (orden descendente)."""
+    camp_col = cols.get("campania")
+    if not camp_col or camp_col not in df.columns:
+        return []
+    vals = df[camp_col].dropna().astype(str).unique().tolist()
+    try:
+        srt = sorted(vals, key=lambda x: float(x) if x.replace(".", "").isdigit() else x, reverse=True)
+    except Exception:
+        srt = sorted(vals, reverse=True)
+    return srt[:4]
+
+
+def _grp_camp(df: pd.DataFrame, col_key: str, cols: dict, last4: list) -> pd.DataFrame | None:
+    """Agrupa por col_key × Campaña para las últimas 4."""
+    camp_col = cols.get("campania")
+    col = cols.get(col_key)
+    if not camp_col or not col or camp_col not in df.columns or col not in df.columns or not last4:
+        return None
+    df2 = df[df[camp_col].astype(str).isin(last4)].copy()
+    g = df2.groupby([col, camp_col]).agg(
+        Cuentas=(col, "count"),
+        Asignado=("__saldo__", "sum"),
+        Pagado=("__pago__", "sum"),
+    ).reset_index()
+    g.columns = [col_key, "Campaña", "Cuentas", "Asignado", "Pagado"]
+    g["PctRec"] = np.where(g["Asignado"] > 0, g["Pagado"] / g["Asignado"] * 100, 0)
+    return g
+
+
 def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel"):
     """Muestra dataframe + botón de descarga Excel."""
     import io
@@ -337,6 +370,10 @@ def tab_indicadores(df: pd.DataFrame):
         if sel:
             df = df[df[camp_col].astype(str).isin(sel)]
             st.caption(f"Filtrando por campaña(s): **{', '.join(sel)}** — {len(df):,} registros")
+
+    # Últimas 4 campañas del universo actual (post-filtro)
+    last4 = _last4_camps(df, cols)
+    camp_col_real = cols.get("campania")
 
     total_cuentas = len(df)
     saldo_asignado = df["__saldo__"].sum()
@@ -448,6 +485,40 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_camp.columns = ["Campaña", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
                 _df_excel(tabla_camp, "recuperacion_por_campana.xlsx")
 
+            if last4 and camp_col_real:
+                _section("📅 Comparativo — Últimas 4 Campañas")
+                # Tabla KPI por campaña
+                rows = []
+                for c in reversed(last4):
+                    dfc = df[df[camp_col_real].astype(str) == c]
+                    n   = len(dfc)
+                    sal = dfc["__saldo__"].sum()
+                    pag = dfc["__pago__"].sum()
+                    pct = pag / sal * 100 if sal > 0 else 0
+                    rec = int((dfc["__pago__"] > 0).sum())
+                    cont = int(dfc[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").sum()) if contacto_col else 0
+                    rows.append({"Campaña": c, "Cuentas": f"{n:,}",
+                                 "Saldo Asignado": fmt_currency(sal), "Recuperado": fmt_currency(pag),
+                                 "% Recuperación": f"{pct:.1f}%", "Ctas. Rec.": f"{rec:,}",
+                                 "Contacto": f"{cont:,}"})
+                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx")
+
+                # Gráfica comparativa
+                g4 = _grp(df[df[camp_col_real].astype(str).isin(last4)], "campania", cols)
+                if g4 is not None:
+                    g4 = g4.sort_values("campania", key=lambda c: c.astype(str))
+                    fig = go.Figure(go.Bar(
+                        x=g4["campania"].astype(str), y=g4["PctRec"],
+                        marker_color=[CAMP_COLORS[i % 4] for i in range(len(g4))],
+                        text=[f"{v:.1f}%" for v in g4["PctRec"]], textposition="outside",
+                    ))
+                    fig.update_layout(
+                        **PLOTLY_LAYOUT, title="% Recuperación — Últimas 4 Campañas",
+                        xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                        yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
+                    )
+                    _chart_card(fig)
+
         # ── Por Segmento ──────────────────────────────────────────────────────
         with sub[1]:
             _banner("📊", "Por Segmento de Mora", "Desempeño de recuperación por nivel de morosidad")
@@ -543,6 +614,53 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
                     _df_excel(tabla, "recuperacion_por_zona.xlsx")
 
+                if last4 and camp_col_real:
+                    _section("📅 Comparativo — Recuperación por Segmento × Últimas 4 Campañas")
+                    g_sc = _grp_camp(df, "segmento", cols, last4)
+                    if g_sc is not None:
+                        camp_order = list(reversed(last4))
+                        color_map = {c: CAMP_COLORS[i % 4] for i, c in enumerate(camp_order)}
+                        fig = px.bar(g_sc, x="segmento", y="PctRec", color="Campaña",
+                                     barmode="group",
+                                     color_discrete_map=color_map,
+                                     text=g_sc["PctRec"].map(lambda v: f"{v:.1f}%"),
+                                     category_orders={"Campaña": camp_order},
+                                     labels={"PctRec": "% Recuperación", "segmento": "Segmento"},
+                                     title="% Recuperación por Segmento — Últimas 4 Campañas")
+                        fig.update_traces(textposition="outside")
+                        fig.update_layout(**PLOTLY_LAYOUT,
+                                          xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
+                                          yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
+                                          legend=dict(title="Campaña", orientation="h",
+                                                      yanchor="bottom", y=1.02, xanchor="right", x=1))
+                        _chart_card(fig)
+
+                    g_dc = _grp_camp(df, "division", cols, last4)
+                    if g_dc is not None:
+                        fig = px.bar(g_dc, x="division", y="PctRec", color="Campaña",
+                                     barmode="group",
+                                     color_discrete_map=color_map,
+                                     text=g_dc["PctRec"].map(lambda v: f"{v:.1f}%"),
+                                     category_orders={"Campaña": camp_order},
+                                     labels={"PctRec": "% Recuperación", "division": "División"},
+                                     title="% Recuperación por División — Últimas 4 Campañas")
+                        fig.update_traces(textposition="outside")
+                        fig.update_layout(**PLOTLY_LAYOUT,
+                                          xaxis=dict(**_AXIS_DEFAULTS, title="División"),
+                                          yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
+                                          legend=dict(title="Campaña", orientation="h",
+                                                      yanchor="bottom", y=1.02, xanchor="right", x=1))
+                        _chart_card(fig)
+
+                    g_rc = _grp_camp(df, "ruta", cols, last4)
+                    if g_rc is not None:
+                        tbl_rc = g_rc.pivot_table(index="ruta", columns="Campaña", values="PctRec", fill_value=0).reset_index()
+                        tbl_rc.columns.name = None
+                        for c in last4:
+                            if c in tbl_rc.columns:
+                                tbl_rc[c] = tbl_rc[c].apply(lambda v: f"{v:.1f}%")
+                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx")
+
         # ── Gestión Damas ─────────────────────────────────────────────────────
         with sub[2]:
             _banner("📞", "Gestión de Damas", "Análisis de contacto y no contacto por segmento y geografía")
@@ -636,6 +754,65 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["PctContacto"] = tabla["PctContacto"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Total", "Contacto", "No Contacto", "% Contacto"]
                     _df_excel(tabla, "contacto_por_zona.xlsx")
+
+                if last4 and camp_col_real:
+                    _section("📅 Comparativo — Contactación × Últimas 4 Campañas")
+                    # % Contacto por campaña
+                    rows_ct = []
+                    for c in reversed(last4):
+                        dfc = df[df[camp_col_real].astype(str) == c]
+                        n   = len(dfc)
+                        ct  = int(dfc[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").sum())
+                        nct = n - ct
+                        pct = ct / n * 100 if n > 0 else 0
+                        rows_ct.append({"Campaña": c, "Total": f"{n:,}", "Contacto": f"{ct:,}",
+                                        "No Contacto": f"{nct:,}", "% Contacto": f"{pct:.1f}%"})
+                    tbl_ct = pd.DataFrame(rows_ct)
+                    _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx")
+
+                    fig_ct = go.Figure()
+                    for i, c in enumerate(reversed(last4)):
+                        dfc = df[df[camp_col_real].astype(str) == c]
+                        n   = len(dfc)
+                        ct  = int(dfc[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").sum())
+                        pct = ct / n * 100 if n > 0 else 0
+                        fig_ct.add_bar(name=f"Campaña {c}", x=[c], y=[pct],
+                                       marker_color=CAMP_COLORS[i % 4],
+                                       text=[f"{pct:.1f}%"], textposition="outside")
+                    fig_ct.update_layout(**PLOTLY_LAYOUT,
+                                         title="% Contacto por Campaña — Últimas 4",
+                                         xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                                         yaxis=dict(**_AXIS_DEFAULTS, title="% Contacto"),
+                                         showlegend=False)
+                    _chart_card(fig_ct)
+
+                    g_ct_seg = _grp_camp(df, "segmento", cols, last4)
+                    if g_ct_seg is not None:
+                        # Recalcular para contacto
+                        dfc2 = df[df[camp_col_real].astype(str).isin(last4)].copy()
+                        dfc2["_ct"] = dfc2[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").astype(int)
+                        seg_col_r = cols.get("segmento")
+                        if seg_col_r:
+                            gc2 = dfc2.groupby([seg_col_r, camp_col_real]).agg(
+                                Total=(seg_col_r, "count"), Contacto=("_ct", "sum")).reset_index()
+                            gc2.columns = ["segmento", "Campaña", "Total", "Contacto"]
+                            gc2["PctContacto"] = np.where(gc2["Total"] > 0, gc2["Contacto"] / gc2["Total"] * 100, 0)
+                            camp_order2 = list(reversed(last4))
+                            color_map2 = {c: CAMP_COLORS[i % 4] for i, c in enumerate(camp_order2)}
+                            fig2 = px.bar(gc2, x="segmento", y="PctContacto", color="Campaña",
+                                          barmode="group",
+                                          color_discrete_map=color_map2,
+                                          text=gc2["PctContacto"].map(lambda v: f"{v:.1f}%"),
+                                          category_orders={"Campaña": camp_order2},
+                                          labels={"PctContacto": "% Contacto", "segmento": "Segmento"},
+                                          title="% Contacto por Segmento — Últimas 4 Campañas")
+                            fig2.update_traces(textposition="outside")
+                            fig2.update_layout(**PLOTLY_LAYOUT,
+                                               xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
+                                               yaxis=dict(**_AXIS_DEFAULTS, title="% Contacto"),
+                                               legend=dict(title="Campaña", orientation="h",
+                                                           yanchor="bottom", y=1.02, xanchor="right", x=1))
+                            _chart_card(fig2)
 
         # ── Dictaminación ─────────────────────────────────────────────────────
         with sub[3]:
@@ -756,6 +933,19 @@ def tab_indicadores(df: pd.DataFrame):
                     st.info("No se encontraron visitas registradas.")
             else:
                 st.info("Configura la columna Visitas Gestor (Col. AO) para ver este gráfico.")
+
+            if last4 and camp_col_real and dictam_col:
+                _section("📅 Comparativo — Dictaminaciones × Últimas 4 Campañas")
+                rows_d = []
+                for c in reversed(last4):
+                    dfc = df[df[camp_col_real].astype(str) == c]
+                    top3 = dfc[dictam_col].fillna("").astype(str).str.strip().value_counts().head(3)
+                    row = {"Campaña": c, "Total Cuentas": f"{len(dfc):,}"}
+                    for j, (k, v) in enumerate(top3.items()):
+                        row[f"#{j+1} Dictaminación"] = k
+                        row[f"#{j+1} Cuentas"] = f"{v:,}"
+                    rows_d.append(row)
+                _df_excel(pd.DataFrame(rows_d), "dictaminacion_ultimas4_campanas.xlsx")
 
         # ── Alertas ───────────────────────────────────────────────────────────
         with sub[4]:
@@ -883,6 +1073,42 @@ def tab_indicadores(df: pd.DataFrame):
             tabla_sit.columns = ["Situación", "Cuentas"]
             tabla_sit["% del Total"] = (tabla_sit["Cuentas"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
             _df_excel(tabla_sit, "situacion_domicilio.xlsx")
+
+            if last4 and camp_col_real:
+                _section("📅 Comparativo — Situación de Domicilio × Últimas 4 Campañas")
+                top3_sit = sit_counts.head(3).index.tolist()
+                rows_sit = []
+                for c in reversed(last4):
+                    dfc = df[df[camp_col_real].astype(str) == c]
+                    n   = len(dfc)
+                    row = {"Campaña": c, "Total": f"{n:,}"}
+                    sc  = dfc[situacion_col].fillna("Sin Info").astype(str).str.strip().value_counts()
+                    for sit in top3_sit:
+                        cnt = sc.get(sit, 0)
+                        row[sit] = f"{cnt:,}  ({cnt/n*100:.1f}%)" if n > 0 else "0"
+                    rows_sit.append(row)
+                _df_excel(pd.DataFrame(rows_sit), "direcciones_ultimas4_campanas.xlsx")
+
+                cross_camp = df[df[camp_col_real].astype(str).isin(last4)].copy()
+                cross_camp = cross_camp[cross_camp[situacion_col].isin(top3_sit)]
+                cross_camp = cross_camp.groupby([situacion_col, camp_col_real]).size().reset_index(name="Cuentas")
+                cross_camp.columns = ["Situacion", "Campaña", "Cuentas"]
+                if len(cross_camp):
+                    camp_order_s = list(reversed(last4))
+                    color_map_s  = {c: CAMP_COLORS[i % 4] for i, c in enumerate(camp_order_s)}
+                    fig = px.bar(cross_camp, x="Situacion", y="Cuentas", color="Campaña",
+                                 barmode="group", text="Cuentas",
+                                 color_discrete_map=color_map_s,
+                                 category_orders={"Campaña": camp_order_s},
+                                 labels={"Situacion": "Situación", "Cuentas": "Cuentas"},
+                                 title="Top 3 Situaciones de Domicilio — Últimas 4 Campañas")
+                    fig.update_traces(textposition="outside")
+                    fig.update_layout(**PLOTLY_LAYOUT,
+                                      xaxis=dict(**_AXIS_DEFAULTS, title="Situación"),
+                                      yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                                      legend=dict(title="Campaña", orientation="h",
+                                                  yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    _chart_card(fig)
 
 
 def _indicadores_uploader():
