@@ -359,17 +359,23 @@ def tab_indicadores(df: pd.DataFrame):
             all_camps = sorted(raw_camps, key=lambda x: float(x) if x.replace(".", "").isdigit() else x)
         except Exception:
             all_camps = sorted(raw_camps)
+        # Últimas 4 como default (orden descendente)
+        try:
+            default4 = sorted(raw_camps,
+                              key=lambda x: float(x) if x.replace(".", "").isdigit() else x,
+                              reverse=True)[:4]
+        except Exception:
+            default4 = sorted(raw_camps, reverse=True)[:4]
         with st.container():
             sel = st.multiselect(
                 "🗓️ Campaña (Col. O) — filtra todo el dashboard",
                 options=all_camps,
-                default=[],
-                placeholder="Mostrando todas las campañas",
+                default=default4,
                 key="camp_filter_global",
             )
         if sel:
             df = df[df[camp_col].astype(str).isin(sel)]
-            st.caption(f"Filtrando por campaña(s): **{', '.join(sel)}** — {len(df):,} registros")
+            st.caption(f"Campañas activas: **{', '.join(sorted(sel, key=lambda x: float(x) if x.replace('.','').isdigit() else x))}** — {len(df):,} registros")
 
     # Últimas 4 campañas del universo actual (post-filtro)
     last4 = _last4_camps(df, cols)
