@@ -1290,20 +1290,28 @@ def tab_indicadores(df: pd.DataFrame):
                         _chart_card(fig)
 
                         # Tabla completa de TODAS las zonas
-                        todas_zonas = (
+                        total_por_zona = (
+                            df.groupby(zona_col_d)
+                            .size()
+                            .reset_index(name="Total Asignadas")
+                        )
+                        gerente_por_zona = (
                             df[_gerente_mask]
                             .groupby(zona_col_d)
                             .size()
-                            .reset_index(name="Pedidos Gerente")
-                            .sort_values("Pedidos Gerente", ascending=False)
+                            .reset_index(name="Entregado Gerente")
+                            .sort_values("Entregado Gerente", ascending=False)
                         )
+                        todas_zonas = total_por_zona.merge(gerente_por_zona, on=zona_col_d, how="left")
+                        todas_zonas["Entregado Gerente"] = todas_zonas["Entregado Gerente"].fillna(0).astype(int)
+                        todas_zonas = todas_zonas.sort_values("Entregado Gerente", ascending=False)
                         todas_zonas = todas_zonas.rename(columns={zona_col_d: "Zona"})
-                        todas_zonas["% del Total"] = (
-                            todas_zonas["Pedidos Gerente"] / total_ger * 100
-                        ).apply(lambda v: f"{v:.1f}%")
-                        todas_zonas["Acumulado %"] = (
-                            todas_zonas["Pedidos Gerente"].cumsum() / total_ger * 100
-                        ).apply(lambda v: f"{v:.1f}%")
+                        todas_zonas["% Entrega Gerente"] = np.where(
+                            todas_zonas["Total Asignadas"] > 0,
+                            todas_zonas["Entregado Gerente"] / todas_zonas["Total Asignadas"] * 100,
+                            0,
+                        ).round(1)
+                        todas_zonas["% Entrega Gerente"] = todas_zonas["% Entrega Gerente"].apply(lambda v: f"{v:.1f}%")
                         _df_excel(todas_zonas, "todas_zonas_gerente.xlsx")
                     else:
                         st.info("No se encontraron registros con 'ENTREGADO POR GERENTE' en la columna AB.")
