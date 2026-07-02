@@ -1289,9 +1289,22 @@ def tab_indicadores(df: pd.DataFrame):
                         )
                         _chart_card(fig)
 
-                        tabla_ger = g_ger.rename(columns={zona_col_d: "Zona"}).sort_values("Pedidos", ascending=False).copy()
-                        tabla_ger["% del Total Gerente"] = (tabla_ger["Pedidos"] / total_ger * 100).apply(lambda v: f"{v:.1f}%")
-                        _df_excel(tabla_ger, "top10_zonas_gerente.xlsx")
+                        # Tabla completa de TODAS las zonas
+                        todas_zonas = (
+                            df[_gerente_mask]
+                            .groupby(zona_col_d)
+                            .size()
+                            .reset_index(name="Pedidos Gerente")
+                            .sort_values("Pedidos Gerente", ascending=False)
+                        )
+                        todas_zonas = todas_zonas.rename(columns={zona_col_d: "Zona"})
+                        todas_zonas["% del Total"] = (
+                            todas_zonas["Pedidos Gerente"] / total_ger * 100
+                        ).apply(lambda v: f"{v:.1f}%")
+                        todas_zonas["Acumulado %"] = (
+                            todas_zonas["Pedidos Gerente"].cumsum() / total_ger * 100
+                        ).apply(lambda v: f"{v:.1f}%")
+                        _df_excel(todas_zonas, "todas_zonas_gerente.xlsx")
                     else:
                         st.info("No se encontraron registros con 'ENTREGADO POR GERENTE' en la columna AB.")
                 else:
