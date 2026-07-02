@@ -108,37 +108,40 @@ if is_admin():
 
     st.divider()
 
-# ── Dashboard Indicadores de Mora ─────────────────────────────────────────────
-with st.spinner("Cargando datos de cartera..."):
-    cart_data = get_latest_cartera(sb)
+# ── Pestañas principales ──────────────────────────────────────────────────────
+top_tabs = st.tabs(["📊 Indicadores de Mora", "🏠 Revisión de Domicilios"])
 
-if cart_data:
-    file_bytes, meta = cart_data
-    df = read_excel_safe(io.BytesIO(file_bytes))
-    st.session_state["ind_df"] = df
-    st.session_state["ind_file_name"] = meta["filename"]
-    st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
-else:
-    st.session_state.pop("ind_df", None)
-    st.session_state.pop("ind_file_name", None)
+# ── Tab 1: Indicadores de Mora ────────────────────────────────────────────────
+with top_tabs[0]:
+    with st.spinner("Cargando datos de cartera..."):
+        cart_data = get_latest_cartera(sb)
 
-_render_indicadores_results()
+    if cart_data:
+        file_bytes, meta = cart_data
+        df = read_excel_safe(io.BytesIO(file_bytes))
+        st.session_state["ind_df"] = df
+        st.session_state["ind_file_name"] = meta["filename"]
+        st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+    else:
+        st.session_state.pop("ind_df", None)
+        st.session_state.pop("ind_file_name", None)
 
-st.divider()
+    _render_indicadores_results()
 
-# ── Dashboard Arabela ────────────────────────────────────────────────────────
-with st.spinner("Cargando datos de domicilios..."):
-    dom_data = get_latest_domicilios(sb)
+# ── Tab 2: Revisión de Domicilios (Arabela Cobranza) ─────────────────────────
+with top_tabs[1]:
+    with st.spinner("Cargando datos de domicilios..."):
+        dom_data = get_latest_domicilios(sb)
 
-if dom_data:
-    file_bytes, meta = dom_data
-    html = (
-        pathlib.Path(__file__).parent
-        .joinpath("arabela_analyzer.html")
-        .read_text(encoding="utf-8")
-    )
-    b64 = base64.b64encode(file_bytes).decode()
-    preload = """<script>
+    if dom_data:
+        file_bytes, meta = dom_data
+        html = (
+            pathlib.Path(__file__).parent
+            .joinpath("arabela_analyzer.html")
+            .read_text(encoding="utf-8")
+        )
+        b64 = base64.b64encode(file_bytes).decode()
+        preload = """<script>
 (function(){
   var b64=%s, fname=%s;
   var bc=atob(b64), bn=new Uint8Array(bc.length);
@@ -148,13 +151,13 @@ if dom_data:
   window._is_admin=%s;
 })();
 </script>""" % (json.dumps(b64), json.dumps(meta["filename"]), json.dumps(is_admin()))
-    html = html.replace("<body>", "<body>" + preload, 1)
-    st.caption(f"📁 Domicilios: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
-    components.html(html, height=1400, scrolling=True)
-else:
-    msg = (
-        "Sube un archivo de domicilios en la sección de gestión de arriba."
-        if is_admin()
-        else "El administrador aún no ha cargado datos de domicilios."
-    )
-    st.info(f"📁 {msg}")
+        html = html.replace("<body>", "<body>" + preload, 1)
+        st.caption(f"📁 Domicilios: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+        components.html(html, height=1400, scrolling=True)
+    else:
+        msg = (
+            "Sube un archivo de domicilios en la sección de gestión de arriba."
+            if is_admin()
+            else "El administrador aún no ha cargado datos de domicilios."
+        )
+        st.info(f"📁 {msg}")
