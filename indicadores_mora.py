@@ -1256,17 +1256,55 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_sit["% del Total"] = (tabla_sit["Pedidos"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
                 _df_excel(tabla_sit, "distribucion_situacion_entrega.xlsx")
 
+                _section("Top 10 Zonas — Entregado por Gerente")
+                zona_col_d = cols.get("zona")
+                if zona_col_d and zona_col_d in df.columns:
+                    _gerente_mask = df[sit_cie_col].fillna("").astype(str).str.upper().str.contains("GERENTE", na=False)
+                    g_ger = (
+                        df[_gerente_mask]
+                        .groupby(zona_col_d)
+                        .size()
+                        .reset_index(name="Pedidos")
+                        .sort_values("Pedidos", ascending=False)
+                        .head(10)
+                        .sort_values("Pedidos")
+                    )
+                    if len(g_ger):
+                        total_ger = int(_gerente_mask.sum())
+                        fig = go.Figure(go.Bar(
+                            x=g_ger["Pedidos"],
+                            y=g_ger[zona_col_d].astype(str),
+                            orientation="h",
+                            marker_color=COLORS["accent"],
+                            text=[f"{v:,}  ({v/total_ger*100:.1f}%)" for v in g_ger["Pedidos"]],
+                            textposition="outside",
+                        ))
+                        fig.update_layout(
+                            **PLOTLY_LAYOUT,
+                            title=f"Top 10 Zonas — Entregado por Gerente ({total_ger:,} pedidos)",
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Pedidos",
+                                       range=[0, g_ger["Pedidos"].max() * 1.4]),
+                            yaxis=dict(**_AXIS_DEFAULTS, title="Zona"),
+                            height=max(320, len(g_ger) * 38 + 90),
+                        )
+                        _chart_card(fig)
+
+                        tabla_ger = g_ger.rename(columns={zona_col_d: "Zona"}).sort_values("Pedidos", ascending=False).copy()
+                        tabla_ger["% del Total Gerente"] = (tabla_ger["Pedidos"] / total_ger * 100).apply(lambda v: f"{v:.1f}%")
+                        _df_excel(tabla_ger, "top10_zonas_gerente.xlsx")
+                    else:
+                        st.info("No se encontraron registros con 'ENTREGADO POR GERENTE' en la columna AB.")
+                else:
+                    st.info("Sin columna de Zona.")
+
                 _section("Situación de Entrega por Geografía (Top 5 situaciones)")
                 c1, c2 = st.columns(2)
                 with c1:
                     _geo_cat_chart(df, sit_cie_col, "division", 5,
                                    "Top 5 Situaciones por División", "División")
                 with c2:
-                    _geo_cat_chart(df, sit_cie_col, "zona", 5,
-                                   "Top 5 Situaciones por Zona", "Zona")
-
-                _geo_cat_chart(df, sit_cie_col, "ruta", 5,
-                               "Top 5 Situaciones por Ruta", "Ruta")
+                    _geo_cat_chart(df, sit_cie_col, "ruta", 5,
+                                   "Top 5 Situaciones por Ruta", "Ruta")
 
                 if camp_col_real and camp_col_real in df.columns:
                     _section("Tendencia de Distribución por Campaña")
