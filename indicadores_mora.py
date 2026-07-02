@@ -983,38 +983,66 @@ def tab_indicadores(df: pd.DataFrame):
         dir_sub = st.tabs(["🏠 Domicilios", "📦 Distribución", "👥 Visitas"])
 
         # ── helpers locales reutilizables para las dos subpestañas ────────────
-        def _geo_cat_chart(df_in, cat_col, geo_key, top_n, chart_title, geo_label=""):
-            """Stacked bar: top_n categorías de cat_col agrupadas por geo_key."""
+        def _geo_cat_chart(df_in, cat_col, geo_key, top_n, chart_title, geo_label="", max_geo=10):
+            """Horizontal stacked bar: top_n categorías × top max_geo unidades geográficas."""
             geo_col = cols.get(geo_key)
             if not geo_col or geo_col not in df_in.columns:
                 st.info(f"Sin columna de {geo_key.title()}.")
                 return
             geo_label = geo_label or geo_key.title()
+
+            # Top categorías
             top_cats = (
                 df_in[cat_col].fillna("Sin Info").astype(str).str.strip()
                 .value_counts().head(top_n).index.tolist()
             )
+            # Top unidades geográficas por volumen total
+            top_geos = (
+                df_in[geo_col].astype(str).value_counts()
+                .head(max_geo).index.tolist()
+            )
+
             df2 = df_in.copy()
+            df2["__geo__"] = df2[geo_col].astype(str)
             df2["__cat__"] = df2[cat_col].fillna("Sin Info").astype(str).str.strip()
-            df2 = df2[df2["__cat__"].isin(top_cats)]
-            cross = df2.groupby([geo_col, "__cat__"]).size().reset_index(name="Cuentas")
+            df2 = df2[df2["__geo__"].isin(top_geos) & df2["__cat__"].isin(top_cats)]
+
+            cross = df2.groupby(["__geo__", "__cat__"]).size().reset_index(name="Cuentas")
             cross.columns = [geo_key, "Categoria", "Cuentas"]
             if cross.empty:
                 st.info("Sin datos suficientes.")
                 return
+
+            # Ordenar geos de mayor a menor total
+            geo_order = (
+                cross.groupby(geo_key)["Cuentas"].sum()
+                .sort_values().index.tolist()
+            )
+
             fig = px.bar(
-                cross, x=geo_key, y="Cuentas", color="Categoria",
+                cross, x="Cuentas", y=geo_key, color="Categoria",
                 barmode="stack", text="Cuentas",
+                orientation="h",
+                category_orders={geo_key: geo_order},
                 labels={geo_key: geo_label, "Cuentas": "Cuentas", "Categoria": "Resultado"},
                 title=chart_title,
             )
             fig.update_traces(textposition="inside", textfont_size=10)
             fig.update_layout(
                 **PLOTLY_LAYOUT,
-                xaxis=dict(**_AXIS_DEFAULTS, title=geo_label),
-                yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                yaxis=dict(
+                    type="category",
+                    categoryorder="array",
+                    categoryarray=geo_order,
+                    gridcolor=COLORS["grid"],
+                    zeroline=False,
+                    showline=False,
+                    tickfont=dict(size=12),
+                ),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                height=420,
+                height=max(380, len(geo_order) * 44 + 100),
+                bargap=0.25,
             )
             _chart_card(fig)
 
@@ -1337,14 +1365,14 @@ def tab_indicadores(df: pd.DataFrame):
                 else:
                     st.info("Sin columna de Zona.")
 
-                _section("Situación de Entrega por Geografía (Top 5 situaciones)")
+                _section("Situación de Entrega por Geografía (Top 10)")
                 c1, c2 = st.columns(2)
                 with c1:
                     _geo_cat_chart(df, sit_cie_col, "division", 5,
                                    "Top 5 Situaciones por División", "División")
                 with c2:
                     _geo_cat_chart(df, sit_cie_col, "ruta", 5,
-                                   "Top 5 Situaciones por Ruta", "Ruta")
+                                   "Top 10 Rutas — Top 5 Situaciones", "Ruta", max_geo=10)
 
                 if camp_col_real and camp_col_real in df.columns:
                     _section("Tendencia de Distribución por Campaña")
@@ -1451,10 +1479,74 @@ def tab_indicadores(df: pd.DataFrame):
                                        "Top 5 Resultados por División", "División")
                     with c2:
                         _geo_cat_chart(df[visited_msk], visita_col_dir, "zona", 5,
-                                       "Top 5 Resultados por Zona", "Zona")
+                                       "Top 10 Zonas — Top 5 Resultados", "Zona", max_geo=10)
 
                     _geo_cat_chart(df[visited_msk], visita_col_dir, "ruta", 5,
-                                   "Top 5 Resultados por Ruta", "Ruta")
+                                   "Top 10 Rutas — Top 5 Resultados", "Ruta", max_geo=10)
+
+                    # ── Top 10 Zonas con Domicilio No Localizado ──────────────
+                    _section("Top 10 Zonas — Domicilio No Localizado")
+                    zona_col_vis = cols.get("zona")
+                    if zona_col_vis and zona_col_vis in df.columns:
+                        _no_loc_mask = (
+                            df[visita_col_dir].fillna("").astype(str).str.upper()
+                            .str.contains("NO LOCALIZ|NO LOCALIZADO|DOMICILIO NO", na=False)
+                        )
+                        g_noloc = (
+                            df[_no_loc_mask]
+                            .groupby(zona_col_vis)
+                            .size()
+                            .reset_index(name="Sin Localizar")
+                        )
+                        tot_zona_vis = df.groupby(zona_col_vis).size().reset_index(name="Total Asignadas")
+                        g_noloc = (
+                            g_noloc.merge(tot_zona_vis, on=zona_col_vis, how="left")
+                            .sort_values("Sin Localizar", ascending=False)
+                            .head(10)
+                            .sort_values("Sin Localizar")
+                        )
+                        g_noloc["Pct"] = np.where(
+                            g_noloc["Total Asignadas"] > 0,
+                            g_noloc["Sin Localizar"] / g_noloc["Total Asignadas"] * 100,
+                            0,
+                        )
+                        if len(g_noloc):
+                            g_noloc["Zona_str"] = "Zona " + g_noloc[zona_col_vis].astype(str)
+                            fig = go.Figure(go.Bar(
+                                x=g_noloc["Sin Localizar"],
+                                y=g_noloc["Zona_str"],
+                                orientation="h",
+                                marker_color=COLORS["danger"],
+                                text=[f"{v:,}  ({p:.1f}%)" for v, p in zip(g_noloc["Sin Localizar"], g_noloc["Pct"])],
+                                textposition="outside",
+                            ))
+                            fig.update_layout(
+                                **PLOTLY_LAYOUT,
+                                title="Top 10 Zonas con Domicilio No Localizado (% sobre asignadas)",
+                                xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas sin localizar",
+                                           range=[0, g_noloc["Sin Localizar"].max() * 1.45]),
+                                yaxis=dict(
+                                    type="category",
+                                    categoryorder="array",
+                                    categoryarray=g_noloc["Zona_str"].tolist(),
+                                    gridcolor=COLORS["grid"],
+                                    zeroline=False, showline=False,
+                                    tickfont=dict(size=13),
+                                ),
+                                height=max(380, len(g_noloc) * 46 + 90),
+                                bargap=0.3,
+                            )
+                            _chart_card(fig)
+
+                            tbl_noloc = g_noloc[["Zona_str", "Sin Localizar", "Total Asignadas", "Pct"]].copy()
+                            tbl_noloc["Pct"] = tbl_noloc["Pct"].apply(lambda v: f"{v:.1f}%")
+                            tbl_noloc.columns = ["Zona", "Domicilio No Localizado", "Total Asignadas", "% No Localizado"]
+                            _df_excel(tbl_noloc.sort_values("Domicilio No Localizado", ascending=False),
+                                      "zonas_domicilio_no_localizado.xlsx")
+                        else:
+                            st.info("No se encontraron registros de 'Domicilio No Localizado' en Col. AO.")
+                    else:
+                        st.info("Sin columna de Zona.")
 
                     if camp_col_real and camp_col_real in df.columns:
                         _section("Tendencia de Visitas por Campaña")
