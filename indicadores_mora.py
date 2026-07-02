@@ -143,6 +143,7 @@ COLUMN_CANDIDATES = {
     "promesa":       ["dictaminacion de llamada", "dictam llamada", "dictaminacion llamada"],
     "contacto":      ["estatus de llamada", "estatus llamada", "estatusllamada"],
     "dictaminacion": ["dictaminacion", "dictam"],
+    "situacion_cie": ["descsituacioncie", "descsituacion cie", "desc situacion cie", "situacioncie"],
     "situacion":     ["descsituacion", "situacion", "estatus"],
 }
 
@@ -163,6 +164,7 @@ COLUMN_LABELS = {
     "promesa":       "Dictam. Llamada (Col. AM)",
     "contacto":      "Estatus Llamada (Col. AN)",
     "dictaminacion": "Dictaminación",
+    "situacion_cie": "Situación Entrega (Col. AB)",
     "situacion":     "Situación Domicilio",
 }
 
@@ -978,137 +980,298 @@ def tab_indicadores(df: pd.DataFrame):
     # DIRECCIONES
     # ══════════════════════════════════════════════════════════════════════════
     with main_tabs[1]:
-        _banner("📍", "Direcciones", "Calidad y estatus de los domicilios de la cartera asignada")
-        situacion_col = cols.get("situacion")
+        dir_sub = st.tabs(["📦 Distribución", "👥 Visitas"])
 
-        if not situacion_col:
-            st.info("No se detectó una columna de situación de domicilio en el archivo de cartera. "
-                    "Verifica que exista una columna 'DescSituacion', 'Situacion' o 'Estatus'.")
-        else:
-            sit_raw   = df[situacion_col].fillna("Sin Información").astype(str).str.strip()
-            sit_counts = sit_raw.value_counts()
-            total_dom  = len(df)
+        # ── helpers locales reutilizables para las dos subpestañas ────────────
+        def _geo_cat_chart(df_in, cat_col, geo_key, top_n, chart_title, geo_label=""):
+            """Stacked bar: top_n categorías de cat_col agrupadas por geo_key."""
+            geo_col = cols.get(geo_key)
+            if not geo_col or geo_col not in df_in.columns:
+                st.info(f"Sin columna de {geo_key.title()}.")
+                return
+            geo_label = geo_label or geo_key.title()
+            top_cats = (
+                df_in[cat_col].fillna("Sin Info").astype(str).str.strip()
+                .value_counts().head(top_n).index.tolist()
+            )
+            df2 = df_in.copy()
+            df2["__cat__"] = df2[cat_col].fillna("Sin Info").astype(str).str.strip()
+            df2 = df2[df2["__cat__"].isin(top_cats)]
+            cross = df2.groupby([geo_col, "__cat__"]).size().reset_index(name="Cuentas")
+            cross.columns = [geo_key, "Categoria", "Cuentas"]
+            if cross.empty:
+                st.info("Sin datos suficientes.")
+                return
+            fig = px.bar(
+                cross, x=geo_key, y="Cuentas", color="Categoria",
+                barmode="stack", text="Cuentas",
+                labels={geo_key: geo_label, "Cuentas": "Cuentas", "Categoria": "Resultado"},
+                title=chart_title,
+            )
+            fig.update_traces(textposition="inside", textfont_size=10)
+            fig.update_layout(
+                **PLOTLY_LAYOUT,
+                xaxis=dict(**_AXIS_DEFAULTS, title=geo_label),
+                yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                height=420,
+            )
+            _chart_card(fig)
 
-            top4 = sit_counts.head(4)
-            met_cols = st.columns(len(top4))
-            for mc, (lbl, cnt) in zip(met_cols, top4.items()):
-                mc.metric(lbl, f"{cnt:,}", delta=f"{cnt/total_dom*100:.1f}%")
+        def _camp_cat_section(df_in, cat_col, file_prefix, top_n=3):
+            """Tabla + gráfica comparativa de últimas 4 campañas para col. categórica."""
+            if not last4 or not camp_col_real or cat_col not in df_in.columns:
+                return
+            _section("📅 Comparativo — Últimas 4 Campañas")
+            top_cats = (
+                df_in[cat_col].fillna("Sin Info").astype(str).str.strip()
+                .value_counts().head(top_n).index.tolist()
+            )
+            rows = []
+            for c in reversed(last4):
+                dfc = df_in[df_in[camp_col_real].astype(str) == c]
+                n   = len(dfc)
+                row = {"Campaña": c, "Total": f"{n:,}"}
+                sc  = dfc[cat_col].fillna("Sin Info").astype(str).str.strip().value_counts()
+                for cat in top_cats:
+                    cnt = sc.get(cat, 0)
+                    row[cat] = f"{cnt:,}  ({cnt/n*100:.1f}%)" if n > 0 else "0"
+                rows.append(row)
+            _df_excel(pd.DataFrame(rows), f"{file_prefix}_ultimas4_campanas.xlsx")
 
-            _section("Distribución de Situación de Domicilio")
-            c1, c2 = st.columns(2)
-            with c1:
-                top6 = sit_counts.head(6)
-                otros = sit_counts[6:].sum()
-                if otros > 0:
-                    top6 = pd.concat([top6, pd.Series({"Otros": otros})])
-                fig = go.Figure(go.Pie(
-                    labels=top6.index, values=top6.values,
-                    hole=0.42, textinfo="label+percent",
-                    textposition="outside",
-                ))
+            df4 = df_in[df_in[camp_col_real].astype(str).isin(last4)].copy()
+            df4["__cat__"] = df4[cat_col].fillna("Sin Info").astype(str).str.strip()
+            df4 = df4[df4["__cat__"].isin(top_cats)]
+            cross4 = df4.groupby([camp_col_real, "__cat__"]).size().reset_index(name="Cuentas")
+            cross4.columns = ["Campaña", "Categoria", "Cuentas"]
+            if len(cross4):
+                camp_order_d = list(reversed(last4))
+                color_map_d  = {c: CAMP_COLORS[i % 4] for i, c in enumerate(camp_order_d)}
+                fig = px.bar(
+                    cross4, x="Campaña", y="Cuentas", color="Categoria",
+                    barmode="group", text="Cuentas",
+                    category_orders={"Campaña": camp_order_d},
+                    labels={"Campaña": "Campaña", "Cuentas": "Cuentas", "Categoria": "Resultado"},
+                    title=f"Top {top_n} Resultados — Últimas 4 Campañas",
+                )
+                fig.update_traces(textposition="outside")
                 fig.update_layout(
-                    **PLOTLY_LAYOUT, title="Distribución de Situación de Domicilio",
-                    legend=dict(orientation="h", yanchor="top", y=-0.1),
+                    **PLOTLY_LAYOUT,
+                    xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                    yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 )
                 _chart_card(fig)
 
-            with c2:
-                bar_d = sit_counts.head(10).sort_values()
-                fig = go.Figure(go.Bar(
-                    x=bar_d.values, y=bar_d.index, orientation="h",
-                    marker_color=COLORS["accent"],
-                    text=[f"{v:,}  ({v/total_dom*100:.1f}%)" for v in bar_d.values],
-                    textposition="outside",
-                ))
-                fig.update_layout(
-                    **PLOTLY_LAYOUT, title="Top 10 Situaciones de Domicilio",
-                    xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas",
-                               range=[0, bar_d.max() * 1.45]),
-                    yaxis=dict(**_AXIS_DEFAULTS),
-                    height=max(280, len(bar_d) * 30 + 90),
+        # ── Distribución (Col AB — DescSituacionCie) ──────────────────────────
+        with dir_sub[0]:
+            _banner("📦", "Distribución", "Situación de entrega de pedidos — Col. AB (DescSituacionCie)")
+            sit_cie_col = cols.get("situacion_cie") or cols.get("situacion")
+
+            if not sit_cie_col:
+                st.info(
+                    "No se detectó la columna DescSituacionCie (Col. AB). "
+                    "Usa el panel ⚙️ Ajustar columnas para asignarla manualmente."
                 )
-                _chart_card(fig)
+            else:
+                sit_raw    = df[sit_cie_col].fillna("Sin Información").astype(str).str.strip()
+                sit_counts = sit_raw.value_counts()
+                total_dom  = len(df)
 
-            _section("Situación de Domicilio por Segmento y Geografía")
-            seg_col = cols.get("segmento")
-            if seg_col and seg_col in df.columns:
-                top5_sit = sit_counts.head(5).index.tolist()
-                cross = df[df[situacion_col].isin(top5_sit)].groupby(
-                    [situacion_col, seg_col]).size().reset_index(name="Cuentas")
-                cross.columns = ["Situacion", "Segmento", "Cuentas"]
-                if len(cross):
-                    fig = px.bar(cross, x="Situacion", y="Cuentas", color="Segmento",
-                                 barmode="group", text="Cuentas",
-                                 labels={"Situacion": "Situación", "Cuentas": "Cuentas"},
-                                 title="Top 5 Situaciones de Domicilio por Segmento de Mora")
-                    fig.update_traces(textposition="outside")
-                    fig.update_layout(**PLOTLY_LAYOUT,
-                                      xaxis=dict(**_AXIS_DEFAULTS, title="Situación"),
-                                      yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                                      legend=dict(title="Segmento", orientation="h",
-                                                  yanchor="bottom", y=1.02, xanchor="right", x=1))
+                # KPI tarjetas
+                top4_sit = sit_counts.head(4)
+                mcs = st.columns(min(len(top4_sit), 4))
+                for mc, (lbl, cnt) in zip(mcs, top4_sit.items()):
+                    mc.metric(lbl, f"{cnt:,}", delta=f"{cnt/total_dom*100:.1f}%")
+
+                _section("Distribución de Situación de Entrega")
+                c1, c2 = st.columns(2)
+                with c1:
+                    top6 = sit_counts.head(6)
+                    otros = sit_counts[6:].sum()
+                    if otros > 0:
+                        top6 = pd.concat([top6, pd.Series({"Otros": otros})])
+                    fig = go.Figure(go.Pie(
+                        labels=top6.index, values=top6.values,
+                        hole=0.42, textinfo="label+percent",
+                        textposition="outside",
+                    ))
+                    fig.update_layout(
+                        **PLOTLY_LAYOUT, title="Participación por Situación de Entrega",
+                        legend=dict(orientation="h", yanchor="top", y=-0.1),
+                    )
+                    _chart_card(fig)
+                with c2:
+                    bar_d = sit_counts.head(10).sort_values()
+                    fig = go.Figure(go.Bar(
+                        x=bar_d.values, y=bar_d.index, orientation="h",
+                        marker_color=COLORS["primary"],
+                        text=[f"{v:,}  ({v/total_dom*100:.1f}%)" for v in bar_d.values],
+                        textposition="outside",
+                    ))
+                    fig.update_layout(
+                        **PLOTLY_LAYOUT, title="Ranking de Situaciones de Entrega (Top 10)",
+                        xaxis=dict(**_AXIS_DEFAULTS, title="Pedidos",
+                                   range=[0, bar_d.max() * 1.5]),
+                        yaxis=dict(**_AXIS_DEFAULTS),
+                        height=max(300, len(bar_d) * 32 + 90),
+                    )
                     _chart_card(fig)
 
-            div_col = cols.get("division")
-            if div_col and div_col in df.columns:
-                top3_sit = sit_counts.head(3).index.tolist()
-                cross_div = df[df[situacion_col].isin(top3_sit)].groupby(
-                    [situacion_col, div_col]).size().reset_index(name="Cuentas")
-                cross_div.columns = ["Situacion", "Division", "Cuentas"]
-                if len(cross_div):
-                    fig = px.bar(cross_div, x="Division", y="Cuentas", color="Situacion",
-                                 barmode="group", text="Cuentas",
-                                 labels={"Division": "División", "Cuentas": "Cuentas"},
-                                 title="Top 3 Situaciones de Domicilio por División")
-                    fig.update_traces(textposition="outside")
-                    fig.update_layout(**PLOTLY_LAYOUT,
-                                      xaxis=dict(**_AXIS_DEFAULTS, title="División"),
-                                      yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                                      legend=dict(title="Situación", orientation="h",
-                                                  yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    _chart_card(fig)
+                _section("Concentración — Tabla Completa de Situaciones")
+                tabla_sit = sit_counts.reset_index()
+                tabla_sit.columns = ["Situación de Entrega", "Pedidos"]
+                tabla_sit["% del Total"] = (tabla_sit["Pedidos"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
+                _df_excel(tabla_sit, "distribucion_situacion_entrega.xlsx")
 
-            _section("Resumen de Situación de Domicilio")
-            tabla_sit = sit_counts.reset_index()
-            tabla_sit.columns = ["Situación", "Cuentas"]
-            tabla_sit["% del Total"] = (tabla_sit["Cuentas"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
-            _df_excel(tabla_sit, "situacion_domicilio.xlsx")
+                _section("Situación de Entrega por Geografía (Top 5 situaciones)")
+                c1, c2 = st.columns(2)
+                with c1:
+                    _geo_cat_chart(df, sit_cie_col, "division", 5,
+                                   "Top 5 Situaciones por División", "División")
+                with c2:
+                    _geo_cat_chart(df, sit_cie_col, "zona", 5,
+                                   "Top 5 Situaciones por Zona", "Zona")
 
-            if last4 and camp_col_real:
-                _section("📅 Comparativo — Situación de Domicilio × Últimas 4 Campañas")
-                top3_sit = sit_counts.head(3).index.tolist()
-                rows_sit = []
-                for c in reversed(last4):
-                    dfc = df[df[camp_col_real].astype(str) == c]
-                    n   = len(dfc)
-                    row = {"Campaña": c, "Total": f"{n:,}"}
-                    sc  = dfc[situacion_col].fillna("Sin Info").astype(str).str.strip().value_counts()
-                    for sit in top3_sit:
-                        cnt = sc.get(sit, 0)
-                        row[sit] = f"{cnt:,}  ({cnt/n*100:.1f}%)" if n > 0 else "0"
-                    rows_sit.append(row)
-                _df_excel(pd.DataFrame(rows_sit), "direcciones_ultimas4_campanas.xlsx")
+                _geo_cat_chart(df, sit_cie_col, "ruta", 5,
+                               "Top 5 Situaciones por Ruta", "Ruta")
 
-                cross_camp = df[df[camp_col_real].astype(str).isin(last4)].copy()
-                cross_camp = cross_camp[cross_camp[situacion_col].isin(top3_sit)]
-                cross_camp = cross_camp.groupby([situacion_col, camp_col_real]).size().reset_index(name="Cuentas")
-                cross_camp.columns = ["Situacion", "Campaña", "Cuentas"]
-                if len(cross_camp):
-                    camp_order_s = list(reversed(last4))
-                    color_map_s  = {c: CAMP_COLORS[i % 4] for i, c in enumerate(camp_order_s)}
-                    fig = px.bar(cross_camp, x="Situacion", y="Cuentas", color="Campaña",
-                                 barmode="group", text="Cuentas",
-                                 color_discrete_map=color_map_s,
-                                 category_orders={"Campaña": camp_order_s},
-                                 labels={"Situacion": "Situación", "Cuentas": "Cuentas"},
-                                 title="Top 3 Situaciones de Domicilio — Últimas 4 Campañas")
-                    fig.update_traces(textposition="outside")
-                    fig.update_layout(**PLOTLY_LAYOUT,
-                                      xaxis=dict(**_AXIS_DEFAULTS, title="Situación"),
-                                      yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                                      legend=dict(title="Campaña", orientation="h",
-                                                  yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    _chart_card(fig)
+                if camp_col_real and camp_col_real in df.columns:
+                    _section("Tendencia de Distribución por Campaña")
+                    top3_s = sit_counts.head(3).index.tolist()
+                    df_tr = df.copy()
+                    df_tr["__cat__"] = df_tr[sit_cie_col].fillna("Sin Info").astype(str).str.strip()
+                    df_tr = df_tr[df_tr["__cat__"].isin(top3_s)]
+                    tr_g = df_tr.groupby([camp_col_real, "__cat__"]).size().reset_index(name="Pedidos")
+                    tr_g.columns = ["Campaña", "Situación", "Pedidos"]
+                    if len(tr_g):
+                        tr_g = tr_g.sort_values("Campaña", key=lambda c: c.astype(str))
+                        fig = px.bar(
+                            tr_g, x="Campaña", y="Pedidos", color="Situación",
+                            barmode="group", text="Pedidos",
+                            labels={"Campaña": "Campaña", "Pedidos": "Pedidos"},
+                            title="Tendencia de Distribución por Campaña (Top 3 situaciones)",
+                        )
+                        fig.update_traces(textposition="outside")
+                        fig.update_layout(
+                            **PLOTLY_LAYOUT,
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                            yaxis=dict(**_AXIS_DEFAULTS, title="Pedidos"),
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        )
+                        _chart_card(fig)
+
+                _camp_cat_section(df, sit_cie_col, "distribucion_entrega")
+
+        # ── Visitas (Col AO) ──────────────────────────────────────────────────
+        with dir_sub[1]:
+            _banner("👥", "Visitas", "Resultados de visitas en campo — Col. AO")
+            visita_col_dir = cols.get("visita")
+
+            if not visita_col_dir:
+                st.info(
+                    "No se detectó la columna de Visitas (Col. AO). "
+                    "Usa el panel ⚙️ Ajustar columnas para asignarla manualmente."
+                )
+            else:
+                _EXCLUIR_VIS = {"", "nan", "none", "0", "0.0", "sin gestion", "sin visita",
+                                "no visita", "no contacto", "sin contacto", "no gestion"}
+                vis_raw     = df[visita_col_dir].fillna("").astype(str).str.strip()
+                visited_msk = ~vis_raw.str.lower().isin(_EXCLUIR_VIS)
+                vis_counts  = vis_raw[visited_msk].value_counts()
+                total_vis   = int(visited_msk.sum())
+                total_dom_v = len(df)
+
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Total Registros", f"{total_dom_v:,}")
+                m2.metric("Visitas Realizadas", f"{total_vis:,}")
+                m3.metric("% con Visita", f"{total_vis/total_dom_v*100:.1f}%" if total_dom_v else "0%")
+                top1_lbl = vis_counts.index[0][:28] if len(vis_counts) else "—"
+                top1_cnt = int(vis_counts.iloc[0]) if len(vis_counts) else 0
+                m4.metric("Resultado más frecuente", top1_lbl, delta=f"{top1_cnt:,}")
+
+                if total_vis == 0:
+                    st.info("No se encontraron visitas registradas.")
+                else:
+                    _section("Distribución de Resultados de Visita")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        top6v = vis_counts.head(6)
+                        otros_v = vis_counts[6:].sum()
+                        if otros_v > 0:
+                            top6v = pd.concat([top6v, pd.Series({"Otros": otros_v})])
+                        fig = go.Figure(go.Pie(
+                            labels=top6v.index, values=top6v.values,
+                            hole=0.42, textinfo="label+percent",
+                            textposition="outside",
+                        ))
+                        fig.update_layout(
+                            **PLOTLY_LAYOUT, title="Participación por Resultado de Visita",
+                            legend=dict(orientation="h", yanchor="top", y=-0.1),
+                        )
+                        _chart_card(fig)
+                    with c2:
+                        bar_v = vis_counts.head(10).sort_values()
+                        fig = go.Figure(go.Bar(
+                            x=bar_v.values, y=bar_v.index, orientation="h",
+                            marker_color=COLORS["teal"],
+                            text=[f"{v:,}  ({v/total_vis*100:.1f}%)" for v in bar_v.values],
+                            textposition="outside",
+                        ))
+                        fig.update_layout(
+                            **PLOTLY_LAYOUT, title="Ranking de Resultados de Visita (Top 10)",
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Visitas",
+                                       range=[0, bar_v.max() * 1.5]),
+                            yaxis=dict(**_AXIS_DEFAULTS),
+                            height=max(300, len(bar_v) * 32 + 90),
+                        )
+                        _chart_card(fig)
+
+                    _section("Resumen Completo de Resultados de Visita")
+                    tabla_vis = vis_counts.reset_index()
+                    tabla_vis.columns = ["Resultado", "Visitas"]
+                    tabla_vis["% del Total Visitas"] = (tabla_vis["Visitas"] / total_vis * 100).apply(lambda v: f"{v:.1f}%")
+                    tabla_vis["% del Total Registros"] = (tabla_vis["Visitas"] / total_dom_v * 100).apply(lambda v: f"{v:.1f}%")
+                    _df_excel(tabla_vis, "visitas_resultado.xlsx")
+
+                    _section("Resultados de Visita por Geografía (Top 5)")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        _geo_cat_chart(df[visited_msk], visita_col_dir, "division", 5,
+                                       "Top 5 Resultados por División", "División")
+                    with c2:
+                        _geo_cat_chart(df[visited_msk], visita_col_dir, "zona", 5,
+                                       "Top 5 Resultados por Zona", "Zona")
+
+                    _geo_cat_chart(df[visited_msk], visita_col_dir, "ruta", 5,
+                                   "Top 5 Resultados por Ruta", "Ruta")
+
+                    if camp_col_real and camp_col_real in df.columns:
+                        _section("Tendencia de Visitas por Campaña")
+                        top3_v = vis_counts.head(3).index.tolist()
+                        df_tv = df[visited_msk].copy()
+                        df_tv["__cat__"] = df_tv[visita_col_dir].astype(str).str.strip()
+                        df_tv = df_tv[df_tv["__cat__"].isin(top3_v)]
+                        tv_g = df_tv.groupby([camp_col_real, "__cat__"]).size().reset_index(name="Visitas")
+                        tv_g.columns = ["Campaña", "Resultado", "Visitas"]
+                        if len(tv_g):
+                            tv_g = tv_g.sort_values("Campaña", key=lambda c: c.astype(str))
+                            fig = px.bar(
+                                tv_g, x="Campaña", y="Visitas", color="Resultado",
+                                barmode="group", text="Visitas",
+                                labels={"Campaña": "Campaña", "Visitas": "Visitas"},
+                                title="Tendencia de Visitas por Campaña (Top 3 resultados)",
+                            )
+                            fig.update_traces(textposition="outside")
+                            fig.update_layout(
+                                **PLOTLY_LAYOUT,
+                                xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                                yaxis=dict(**_AXIS_DEFAULTS, title="Visitas"),
+                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                            )
+                            _chart_card(fig)
+
+                    _camp_cat_section(df[visited_msk], visita_col_dir, "visitas")
 
 
 def _indicadores_uploader():
