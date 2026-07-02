@@ -1271,9 +1271,11 @@ def tab_indicadores(df: pd.DataFrame):
                     )
                     if len(g_ger):
                         total_ger = int(_gerente_mask.sum())
+                        # Forzar etiquetas como string para eje categórico
+                        g_ger["Zona_str"] = "Zona " + g_ger[zona_col_d].astype(str)
                         fig = go.Figure(go.Bar(
                             x=g_ger["Pedidos"],
-                            y=g_ger[zona_col_d].astype(str),
+                            y=g_ger["Zona_str"],
                             orientation="h",
                             marker_color=COLORS["accent"],
                             text=[f"{v:,}  ({v/total_ger*100:.1f}%)" for v in g_ger["Pedidos"]],
@@ -1283,9 +1285,18 @@ def tab_indicadores(df: pd.DataFrame):
                             **PLOTLY_LAYOUT,
                             title=f"Top 10 Zonas — Entregado por Gerente ({total_ger:,} pedidos)",
                             xaxis=dict(**_AXIS_DEFAULTS, title="Pedidos",
-                                       range=[0, g_ger["Pedidos"].max() * 1.4]),
-                            yaxis=dict(**_AXIS_DEFAULTS, title="Zona"),
-                            height=max(320, len(g_ger) * 38 + 90),
+                                       range=[0, g_ger["Pedidos"].max() * 1.45]),
+                            yaxis=dict(
+                                type="category",
+                                categoryorder="array",
+                                categoryarray=g_ger["Zona_str"].tolist(),
+                                gridcolor=COLORS["grid"],
+                                zeroline=False,
+                                showline=False,
+                                tickfont=dict(size=13),
+                            ),
+                            height=max(380, len(g_ger) * 46 + 90),
+                            bargap=0.3,
                         )
                         _chart_card(fig)
 
