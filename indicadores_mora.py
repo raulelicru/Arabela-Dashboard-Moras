@@ -1260,14 +1260,22 @@ def tab_indicadores(df: pd.DataFrame):
                 zona_col_d = cols.get("zona")
                 if zona_col_d and zona_col_d in df.columns:
                     _gerente_mask = df[sit_cie_col].fillna("").astype(str).str.upper().str.contains("GERENTE", na=False)
+                    # Total asignadas por zona (denominador del %)
+                    _total_zona = df.groupby(zona_col_d).size().reset_index(name="Total Asignadas")
                     g_ger = (
                         df[_gerente_mask]
                         .groupby(zona_col_d)
                         .size()
                         .reset_index(name="Pedidos")
+                        .merge(_total_zona, on=zona_col_d, how="left")
                         .sort_values("Pedidos", ascending=False)
                         .head(10)
                         .sort_values("Pedidos")
+                    )
+                    g_ger["Pct"] = np.where(
+                        g_ger["Total Asignadas"] > 0,
+                        g_ger["Pedidos"] / g_ger["Total Asignadas"] * 100,
+                        0,
                     )
                     if len(g_ger):
                         total_ger = int(_gerente_mask.sum())
@@ -1278,7 +1286,7 @@ def tab_indicadores(df: pd.DataFrame):
                             y=g_ger["Zona_str"],
                             orientation="h",
                             marker_color=COLORS["accent"],
-                            text=[f"{v:,}  ({v/total_ger*100:.1f}%)" for v in g_ger["Pedidos"]],
+                            text=[f"{ped:,}  ({pct:.1f}%)" for ped, pct in zip(g_ger["Pedidos"], g_ger["Pct"])],
                             textposition="outside",
                         ))
                         fig.update_layout(
