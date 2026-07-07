@@ -440,10 +440,10 @@ def tab_indicadores(df: pd.DataFrame):
 
             _section("Recuperación por Ámbito Geográfico")
             c1, c2, c3 = st.columns(3)
-            for widget, key, title in [
-                (c1, "region",   "% Recuperación por Región"),
-                (c2, "ruta",     "% Recuperación por Ruta (Top 15)"),
-                (c3, "division", "% Recuperación por División"),
+            for widget, key, title, fname in [
+                (c1, "region",   "% Recuperación por Región",         "recuperacion_por_region.xlsx"),
+                (c2, "ruta",     "% Recuperación por Ruta (Top 15)",  "recuperacion_por_ruta.xlsx"),
+                (c3, "division", "% Recuperación por División",       "recuperacion_por_division.xlsx"),
             ]:
                 with widget:
                     g = _grp(df, key, cols, top_n=15 if key == "ruta" else None)
@@ -453,6 +453,12 @@ def tab_indicadores(df: pd.DataFrame):
                         g = g.sort_values("PctRec")
                         _chart_card(_hbar(g, "PctRec", key, title, "% Recuperación",
                                          color_fn=_color_pct))
+                        tbl_geo = g[[key, "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
+                        tbl_geo["Asignado"] = tbl_geo["Asignado"].apply(fmt_currency)
+                        tbl_geo["Pagado"]   = tbl_geo["Pagado"].apply(fmt_currency)
+                        tbl_geo["PctRec"]   = tbl_geo["PctRec"].apply(lambda v: f"{v:.1f}%")
+                        tbl_geo.columns = [key.title(), "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
+                        _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname)
 
             _section("Tendencia por Campaña")
             g = _grp(df, "campania", cols)
@@ -867,6 +873,12 @@ def tab_indicadores(df: pd.DataFrame):
                     )
                     _chart_card(fig)
 
+                # Tabla completa de dictaminaciones
+                tbl_dict = all_counts.reset_index()
+                tbl_dict.columns = ["Dictaminación", "Cuentas"]
+                tbl_dict["% del Total"] = (tbl_dict["Cuentas"] / len(df) * 100).apply(lambda v: f"{v:.1f}%")
+                _df_excel(tbl_dict, "dictaminaciones_completo.xlsx")
+
                 def _dictam_geo_chart(geo_key, title):
                     geo_col = cols.get(geo_key)
                     if not geo_col or geo_col not in df.columns:
@@ -895,6 +907,13 @@ def tab_indicadores(df: pd.DataFrame):
                         height=420,
                     )
                     _chart_card(fig)
+                    # Tabla pivot descargable
+                    piv = cross.pivot_table(index=geo_key, columns="Dictaminacion",
+                                            values="Cuentas", fill_value=0).reset_index()
+                    piv.columns.name = None
+                    piv["Total"] = piv.iloc[:, 1:].sum(axis=1)
+                    piv = piv.sort_values("Total", ascending=False)
+                    _df_excel(piv, f"dictam_{geo_key}.xlsx")
 
                 _section("Dictaminaciones por Geografía (Top 5 resultados)")
                 c1, c2 = st.columns(2)
@@ -1045,6 +1064,16 @@ def tab_indicadores(df: pd.DataFrame):
                 bargap=0.25,
             )
             _chart_card(fig)
+
+            # Tabla pivot descargable
+            pivot = cross.pivot_table(
+                index=geo_key, columns="Categoria", values="Cuentas", fill_value=0
+            ).reset_index()
+            pivot.columns.name = None
+            pivot["Total"] = pivot.iloc[:, 1:].sum(axis=1)
+            pivot = pivot.sort_values("Total", ascending=False)
+            safe = chart_title[:30].replace(" ", "_").lower()
+            _df_excel(pivot, f"{geo_key}_{safe}.xlsx")
 
         def _camp_cat_section(df_in, cat_col, file_prefix, top_n=3):
             """Tabla + gráfica comparativa de últimas 4 campañas para col. categórica."""
