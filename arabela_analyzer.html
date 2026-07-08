@@ -13,6 +13,7 @@
 <!-- ===================== LIBRERIAS CDN ===================== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
 
 <style>
 /* ============================================================
@@ -612,9 +613,8 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
             <button id="mapViewDiv" class="btn btn-ghost" style="font-size:12px;padding:5px 13px;" onclick="setMapView('division')">Por División</button>
           </div>
         </div>
-        <div id="dupMapWrap" style="position:relative;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#eef4ff 0%,#f1f5fb 100%);">
-          <svg id="dupMapSvg" viewBox="0 0 820 500" style="width:100%;height:auto;display:block;"></svg>
-          <div id="dupMapTip" style="display:none;position:absolute;background:#fff;border-radius:10px;padding:9px 15px;box-shadow:0 6px 24px rgba(0,0,0,.14);font-size:12.5px;pointer-events:none;z-index:20;border-left:3px solid #2563eb;min-width:140px;"></div>
+        <div id="dupMapWrap" style="border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#eef4ff 0%,#f1f5fb 100%);">
+          <div id="dupPlotlyMap" style="width:100%;"></div>
         </div>
         <div id="dupMapLegend" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;flex-wrap:wrap;"></div>
       </div>
@@ -1563,34 +1563,6 @@ const MX_STATES = [
   ['ZACATECAS','Zacatecas',23.20,-102.60],
 ];
 
-// Simplified Mexico outline path (SVG coords for 820×500 viewBox)
-// Projection: lon -118→-86.5 = 820px, lat 33→14 = 500px
-const MX_OUTLINE = `M 28,14 L 110,16 L 168,30 L 214,44 L 260,14 L 310,14
-  L 364,30 L 400,36 L 440,54 L 476,58 L 524,100 L 545,154
-  L 548,195 L 540,242 L 536,290 L 544,340 L 556,372
-  L 618,392 L 660,386 L 700,370 L 714,308 L 716,280
-  L 744,285 L 778,302 L 790,340 L 788,372 L 774,404
-  L 760,432 L 748,458 L 726,472 L 700,480 L 674,474
-  L 654,460 L 636,470 L 614,466 L 592,458 L 570,462
-  L 548,452 L 528,438 L 508,424 L 488,432 L 460,438
-  L 432,428 L 406,420 L 374,428 L 344,424 L 318,440
-  L 294,448 L 268,444 L 244,448 L 218,458 L 194,460
-  L 168,454 L 148,464 L 126,472 L 100,470 L 76,462
-  L 52,470 L 32,460 L 18,444 L 12,422 L 14,396
-  L 24,368 L 36,344 L 50,318 L 62,290 L 66,262
-  L 60,238 L 54,208 L 60,182 L 70,158 L 82,136
-  L 88,108 L 82,82 L 72,56 L 44,36 Z
-  M 16,80 L 60,78 L 80,90 L 90,120 L 94,160 L 96,210
-  L 100,260 L 100,310 L 96,360 L 88,400 L 80,420
-  L 66,430 L 54,418 L 50,380 L 54,330 L 56,270
-  L 52,210 L 44,160 L 36,130 L 22,100 Z`;
-
-// Baja California peninsula separate path
-const MX_BAJA = `M 16,80 L 60,78 L 80,90 L 90,120 L 94,160 L 96,210
-  L 100,260 L 100,310 L 96,360 L 88,400 L 80,420
-  L 66,430 L 54,418 L 50,380 L 54,330 L 56,270
-  L 52,210 L 44,160 L 36,130 L 22,100 Z`;
-
 let _dupMapData = null;
 let _dupMapView = 'estado';
 
@@ -1605,160 +1577,151 @@ function setMapView(view) {
 
 function renderDupMap(data, view) {
   _dupMapData = data;
-  const svg = document.getElementById('dupMapSvg');
+  const mapDiv = document.getElementById('dupPlotlyMap');
   const legendEl = document.getElementById('dupMapLegend');
-  const tip = document.getElementById('dupMapTip');
-  if (!svg) return;
+  if (!mapDiv || typeof Plotly === 'undefined') return;
 
   const dupRows = data.filter(r => r.DOMICILIO_DUPLICADO === 'DUPLICADO');
-
   const normKey = s => (s||'').toUpperCase()
     .normalize('NFD').replace(/[̀-ͯ]/g,'')
     .replace(/[^A-Z ]/g,'').trim();
 
-  // ── Projection: lon [-118, -86.5] → x [0, 820]; lat [33, 14] → y [0, 500]
-  const W=820, H=500;
-  const LON1=-118, LON2=-86.5, LAT1=33, LAT2=14;
-  const px = lon => (lon-LON1)/(LON2-LON1)*W;
-  const py = lat => (LAT1-lat)/(LAT1-LAT2)*H;
-
-  // ── Color scale: sequential blue (light → dark)
-  const blueScale = t => {
-    const r = Math.round(210 - t*162);
-    const g = Math.round(230 - t*98);
-    const b = Math.round(252 - t*54);
-    return `rgb(${r},${g},${b})`;
-  };
-
-  let points = [];
+  const _FONT = "Inter, -apple-system, 'Segoe UI', sans-serif";
+  const _TEXT2 = '#52514e';
+  const _GRID = '#e1e0d9';
+  legendEl.innerHTML = '';
 
   if (view === 'estado') {
-    // Group by ESTADO
+    // ── Group by ESTADO
     const byEst = {};
     dupRows.forEach(r => {
       const k = normKey(r.ESTADO);
       if (k && k !== 'SIN ESTADO') byEst[k] = (byEst[k]||0)+1;
     });
 
-    // Deduplicate state entries (keep highest lat for display)
-    const seen = {};
-    MX_STATES.forEach(([key,label,lat,lon]) => {
+    const lats = [], lons = [], texts = [], counts = [];
+    const seenLabel = new Set();
+    MX_STATES.forEach(([key, label, lat, lon]) => {
+      if (seenLabel.has(label)) return;
+      seenLabel.add(label);
       const k = normKey(key);
-      const count = byEst[k]||0;
-      if (!seen[label] || count > (seen[label].count||0)) {
-        seen[label] = { label, lat, lon, count, x: px(lon), y: py(lat) };
+      const count = byEst[k] || 0;
+      if (count > 0) {
+        lats.push(lat); lons.push(lon);
+        texts.push(label); counts.push(count);
       }
     });
-    points = Object.values(seen);
+
+    if (!counts.length) {
+      mapDiv.innerHTML = '<p style="text-align:center;padding:100px 0;color:#94a3b8;font-family:Inter,sans-serif;">Sin datos de estado — prueba la vista Por División.</p>';
+      return;
+    }
+
+    const maxC = Math.max(...counts);
+    const sizes = counts.map(c => 10 + Math.sqrt(c / maxC) * 44);
+
+    const trace = {
+      type: 'scattergeo',
+      lat: lats, lon: lons, text: texts,
+      marker: {
+        size: sizes,
+        color: counts,
+        colorscale: [
+          [0.00, '#cde2fb'], [0.20, '#86b6ef'],
+          [0.45, '#3987e5'], [0.72, '#2a78d6'], [1.00, '#1c5cab']
+        ],
+        cmin: 0, cmax: maxC,
+        showscale: true,
+        colorbar: {
+          title: { text: 'Cuentas', side: 'right', font: { size: 11, color: _TEXT2, family: _FONT } },
+          thickness: 12, len: 0.55, x: 1.01,
+          tickfont: { size: 10, color: _TEXT2, family: _FONT },
+          borderwidth: 0, bgcolor: 'rgba(0,0,0,0)', outlinewidth: 0
+        },
+        line: { color: 'white', width: 2 },
+        opacity: 0.88
+      },
+      customdata: counts,
+      hovertemplate: '<b>%{text}</b><br>Domicilios duplicados: <b>%{customdata:,}</b><extra></extra>',
+      mode: 'markers'
+    };
+
+    const layout = {
+      geo: {
+        scope: 'north america',
+        projection: { type: 'mercator' },
+        showland: true,  landcolor: '#dce9f5',
+        showocean: true, oceancolor: '#eef4ff',
+        showlakes: true, lakecolor: '#d8ecff',
+        showcountries: true, countrycolor: '#9bb3cc', countrywidth: 1.2,
+        showsubunits: true, subunitcolor: '#b8cde8', subunitwidth: 0.6,
+        lonaxis: { range: [-119, -85] },
+        lataxis: { range: [13.5, 33.5] },
+        bgcolor: 'rgba(0,0,0,0)', framecolor: 'rgba(0,0,0,0)', framewidth: 0
+      },
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: { l: 0, r: 50, t: 8, b: 8 },
+      height: 440,
+      font: { family: _FONT, color: _TEXT2, size: 11 },
+      hoverlabel: {
+        bgcolor: '#ffffff', bordercolor: '#e1e0d9',
+        font: { family: _FONT, size: 12.5, color: '#0b0b0b' }
+      }
+    };
+
+    Plotly.newPlot(mapDiv, [trace], layout, { displayModeBar: false, responsive: true, scrollZoom: false });
 
   } else {
-    // View by DIVISION — use approximate division centroids if available, else scatter
+    // ── Por División — horizontal bar chart
     const byDiv = {};
     dupRows.forEach(r => {
-      const k = (r.DIVISION||'SIN DIVISION').trim();
+      const k = (r.DIVISION || 'Sin División').trim();
       byDiv[k] = (byDiv[k]||0)+1;
     });
-    // Place divisions in a horizontal arrangement inside Mexico
-    const divList = Object.entries(byDiv).sort((a,b)=>b[1]-a[1]);
-    const total = divList.length;
-    divList.forEach(([div, count], i) => {
-      const angle = (i / total) * Math.PI * 1.6 - 0.4;
-      const cx = W/2 + Math.cos(angle) * 200;
-      const cy = H/2 + Math.sin(angle) * 140;
-      points.push({ label: div, count, x: cx, y: cy });
-    });
+
+    const entries = Object.entries(byDiv).sort((a,b)=>b[1]-a[1]).slice(0,20);
+    if (!entries.length) {
+      mapDiv.innerHTML = '<p style="text-align:center;padding:100px 0;color:#94a3b8;font-family:Inter,sans-serif;">Sin datos de división disponibles.</p>';
+      return;
+    }
+
+    const labels = entries.map(([d]) => d);
+    const values = entries.map(([,v]) => v);
+    const CAT = ['#2a78d6','#1baf7a','#e87ba4','#eb6834','#4a3aa7','#eda100','#e34948','#008300'];
+    const colors = labels.map((_,i) => CAT[i % CAT.length]);
+
+    const trace = {
+      type: 'bar', orientation: 'h',
+      x: values, y: labels,
+      marker: { color: colors, opacity: 0.85, line: { width: 0 } },
+      text: values.map(v => v.toLocaleString('es-MX')),
+      textposition: 'outside',
+      textfont: { size: 11, color: _TEXT2, family: _FONT },
+      hovertemplate: '<b>%{y}</b><br>Duplicados: <b>%{x:,}</b><extra></extra>',
+      cliponaxis: false
+    };
+
+    const layout = {
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#f9f9f7',
+      margin: { l: 140, r: 70, t: 20, b: 40 },
+      height: Math.max(320, entries.length * 38 + 80),
+      xaxis: {
+        showgrid: true, gridcolor: _GRID, gridwidth: 1,
+        zeroline: false, tickfont: { size: 10, color: _TEXT2, family: _FONT }
+      },
+      yaxis: {
+        autorange: 'reversed',
+        tickfont: { size: 11, color: '#0b0b0b', family: _FONT }
+      },
+      font: { family: _FONT, color: _TEXT2 },
+      hoverlabel: {
+        bgcolor: '#ffffff', bordercolor: '#e1e0d9',
+        font: { family: _FONT, size: 12.5, color: '#0b0b0b' }
+      }
+    };
+
+    Plotly.newPlot(mapDiv, [trace], layout, { displayModeBar: false, responsive: true });
   }
-
-  const maxCount = Math.max(...points.map(p=>p.count), 1);
-  const hasData = points.some(p=>p.count>0);
-
-  // ── Build SVG
-  let svgContent = `
-    <!-- Mexico background -->
-    <defs>
-      <radialGradient id="bgGrad" cx="50%" cy="50%" r="60%">
-        <stop offset="0%" stop-color="#e8f0fe" stop-opacity="0.6"/>
-        <stop offset="100%" stop-color="#dce9f8" stop-opacity="0.3"/>
-      </radialGradient>
-      <filter id="shadow">
-        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.12"/>
-      </filter>
-    </defs>
-    <rect width="${W}" height="${H}" fill="url(#bgGrad)" rx="12"/>
-    <!-- Mexico mainland outline -->
-    <path d="${MX_OUTLINE}" fill="#d6e4f7" stroke="#b8cde8" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
-    <!-- Baja California -->
-    <path d="${MX_BAJA}" fill="#d6e4f7" stroke="#b8cde8" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
-    <!-- State / division bubbles -->`;
-
-  // Draw grid lines (subtle)
-  for (let lon=-115; lon<=-90; lon+=5) {
-    const x = px(lon);
-    svgContent += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#c5d8ee" stroke-width="0.4" stroke-dasharray="3,6"/>`;
-  }
-  for (let lat=16; lat<=32; lat+=4) {
-    const y = py(lat);
-    svgContent += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#c5d8ee" stroke-width="0.4" stroke-dasharray="3,6"/>`;
-  }
-
-  // Bubbles (sorted: largest first so small ones render on top)
-  const sorted = [...points].sort((a,b)=>b.count-a.count);
-  sorted.forEach(p => {
-    if (p.count === 0) return;
-    const t = Math.sqrt(p.count/maxCount);
-    const r = Math.max(10, t*52);
-    const fill = blueScale(t);
-    const textCol = t>0.55 ? '#ffffff' : '#1e3a5f';
-    svgContent += `
-    <g class="map-bubble" data-label="${p.label}" data-count="${p.count}" style="cursor:pointer;">
-      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}"
-        fill="${fill}" stroke="white" stroke-width="2"
-        filter="url(#shadow)" opacity="0.92"/>
-      ${r>18 ? `<text x="${p.x.toFixed(1)}" y="${(p.y+4).toFixed(1)}"
-        text-anchor="middle" font-size="${Math.min(r*0.42,13).toFixed(1)}"
-        font-weight="600" fill="${textCol}" font-family="Inter,sans-serif"
-        style="pointer-events:none;">${p.count.toLocaleString('es-MX')}</text>` : ''}
-    </g>`;
-  });
-
-  if (!hasData) {
-    svgContent += `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="15"
-      fill="#94a3b8" font-family="Inter,sans-serif">
-      Sin datos de estado disponibles — usa la vista Por División</text>`;
-  }
-
-  svg.innerHTML = svgContent;
-
-  // ── Legend
-  legendEl.innerHTML = `
-    <span style="font-size:11px;color:#94a3b8;font-family:Inter,sans-serif;">Menos duplicados</span>
-    ${[0.15,0.35,0.55,0.75,1.0].map(t=>{
-      const sz = (8+t*22).toFixed(0);
-      return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${blueScale(t)};border:1.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.12);flex-shrink:0;"></div>`;
-    }).join('')}
-    <span style="font-size:11px;color:#94a3b8;font-family:Inter,sans-serif;">Más duplicados</span>`;
-
-  // ── Tooltip
-  const wrap = document.getElementById('dupMapWrap');
-  svg.querySelectorAll('.map-bubble').forEach(el => {
-    el.addEventListener('mouseenter', e => {
-      const label = el.dataset.label;
-      const count = Number(el.dataset.count);
-      tip.innerHTML = `<div style="font-weight:700;color:#1e3a5f;margin-bottom:3px;">${label}</div>
-        <div style="color:#64748b;">${count.toLocaleString('es-MX')} cuentas duplicadas</div>`;
-      tip.style.display = 'block';
-    });
-    el.addEventListener('mousemove', e => {
-      const rect = wrap.getBoundingClientRect();
-      let left = e.clientX - rect.left + 14;
-      let top = e.clientY - rect.top - 50;
-      if (left + 170 > rect.width) left -= 180;
-      if (top < 0) top = 8;
-      tip.style.left = left+'px';
-      tip.style.top = top+'px';
-    });
-    el.addEventListener('mouseleave', () => { tip.style.display='none'; });
-  });
 }
 
 /* ============================================================
