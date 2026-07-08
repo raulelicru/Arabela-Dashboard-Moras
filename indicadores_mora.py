@@ -48,11 +48,13 @@ COLORS = {
 
 _FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 
+_MARGIN_DEFAULT = dict(l=48, r=24, t=56, b=48)
+
 PLOTLY_LAYOUT = dict(
     paper_bgcolor=COLORS["bg"],
     plot_bgcolor=COLORS["plot_bg"],
     font=dict(color=COLORS["text2"], family=_FONT, size=12),
-    margin=dict(l=48, r=24, t=56, b=48),
+    margin=_MARGIN_DEFAULT,
     hovermode="closest",
     hoverlabel=dict(
         bgcolor=COLORS["bg"], bordercolor=COLORS["grid"],
@@ -60,6 +62,12 @@ PLOTLY_LAYOUT = dict(
     ),
     colorway=CAT_COLORS,
 )
+
+def _layout(**overrides):
+    """Return PLOTLY_LAYOUT with overrides merged (avoids duplicate-key TypeError)."""
+    merged = dict(PLOTLY_LAYOUT)
+    merged.update(overrides)
+    return merged
 
 _LEGEND_H = dict(
     orientation="h", yanchor="bottom", y=1.02,
@@ -1036,8 +1044,7 @@ def tab_indicadores(df: pd.DataFrame):
                         hovertemplate="<b>%{y}</b><br>%{x}<br>Cuentas: <b>%{z}</b><extra></extra>",
                         xgap=2, ygap=2,
                     ))
-                    fig.update_layout(
-                        **PLOTLY_LAYOUT,
+                    fig.update_layout(_layout(
                         title=dict(text=title, font=dict(size=14, color=COLORS["primary"], weight=600)),
                         xaxis=dict(
                             tickfont=dict(size=10, color=COLORS["text2"]),
@@ -1053,7 +1060,7 @@ def tab_indicadores(df: pd.DataFrame):
                         annotations=annots,
                         height=max(320, len(top_geos) * 34 + 120),
                         margin=dict(l=90, r=80, t=60, b=90),
-                    )
+                    ))
                     _chart_card(fig)
 
                     # Tabla pivot descargable
