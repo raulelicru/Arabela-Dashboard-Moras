@@ -16,31 +16,102 @@ def _norm(s: str) -> str:
         if unicodedata.category(c) != 'Mn'
     )
 
+# ── Design system ────────────────────────────────────────────────────────────
+# Categorical palette (8 slots, CVD-safe ordering from dataviz skill)
+CAT_COLORS = [
+    "#2a78d6",  # 1 blue
+    "#1baf7a",  # 2 aqua-green
+    "#e87ba4",  # 3 magenta-pink
+    "#eb6834",  # 4 orange
+    "#4a3aa7",  # 5 violet
+    "#eda100",  # 6 amber
+    "#e34948",  # 7 red
+    "#008300",  # 8 green
+]
+
 COLORS = {
-    "primary": "#1a3c6e", "accent": "#3b82f6", "success": "#10b981",
-    "warning": "#f59e0b", "danger": "#ef4444", "purple": "#8b5cf6",
-    "teal": "#06b6d4", "orange": "#f97316", "muted": "#94a3b8",
-    "bg": "#ffffff", "grid": "#e5e7eb", "text": "#374151",
+    "primary":   "#1e3a5f",
+    "accent":    "#2a78d6",
+    "success":   "#1baf7a",
+    "warning":   "#eda100",
+    "danger":    "#e34948",
+    "purple":    "#4a3aa7",
+    "pink":      "#e87ba4",
+    "orange":    "#eb6834",
+    "muted":     "#898781",
+    "bg":        "#fcfcfb",
+    "plot_bg":   "#f9f9f7",
+    "grid":      "#e1e0d9",
+    "text":      "#0b0b0b",
+    "text2":     "#52514e",
 }
+
+_FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif"
+
 PLOTLY_LAYOUT = dict(
-    paper_bgcolor=COLORS["bg"], plot_bgcolor="#f9fafb",
-    font=dict(color=COLORS["text"], family="Inter, sans-serif", size=12),
-    margin=dict(l=40, r=20, t=50, b=60), hovermode="x unified",
+    paper_bgcolor=COLORS["bg"],
+    plot_bgcolor=COLORS["plot_bg"],
+    font=dict(color=COLORS["text2"], family=_FONT, size=12),
+    margin=dict(l=48, r=24, t=56, b=48),
+    hovermode="closest",
+    hoverlabel=dict(
+        bgcolor=COLORS["bg"], bordercolor=COLORS["grid"],
+        font=dict(color=COLORS["text"], family=_FONT, size=12),
+    ),
+    legend=dict(
+        orientation="h", yanchor="bottom", y=1.02,
+        xanchor="right", x=1,
+        font=dict(size=11, color=COLORS["text2"]),
+        bgcolor="rgba(0,0,0,0)", borderwidth=0,
+    ),
+    colorway=CAT_COLORS,
 )
-_AXIS_DEFAULTS = dict(gridcolor=COLORS["grid"], zeroline=False, showline=False)
+
+_AXIS_DEFAULTS = dict(
+    gridcolor=COLORS["grid"],
+    gridwidth=1,
+    zeroline=False,
+    showline=False,
+    tickfont=dict(size=11, color=COLORS["muted"]),
+    title_font=dict(size=12, color=COLORS["text2"]),
+)
 
 INDICADORES_CSS = """
 <style>
-.chart-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px;
-  padding:1rem 1.2rem 0.5rem; box-shadow:0 2px 8px rgba(26,60,110,0.06);
-  margin-bottom:1rem; transition:box-shadow .25s ease; }
-.chart-card:hover { box-shadow:0 6px 24px rgba(26,60,110,0.13); }
-.kpi-banner { background:linear-gradient(135deg,#1a3c6e 0%,#2563eb 100%);
-  border-radius:14px; padding:1.2rem 1.8rem; color:#fff; margin-bottom:1.2rem; }
-.kpi-banner h1 { color:#fff !important; font-size:1.4rem; margin:0; }
-.kpi-banner p  { color:rgba(255,255,255,.75); margin:.2rem 0 0; font-size:.85rem; }
-.section-title { font-size:1.05rem; font-weight:600; color:#1a3c6e;
-  border-left:4px solid #3b82f6; padding-left:.7rem; margin:1.2rem 0 .8rem; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.chart-card {
+  background: #fcfcfb;
+  border: 1px solid #e1e0d9;
+  border-radius: 16px;
+  padding: 1.1rem 1.4rem 0.6rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(30,58,95,0.06);
+  margin-bottom: 1rem;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.chart-card:hover {
+  box-shadow: 0 4px 20px rgba(30,58,95,0.14);
+  transform: translateY(-1px);
+}
+.kpi-banner {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2a78d6 60%, #1baf7a 100%);
+  border-radius: 16px;
+  padding: 1.3rem 1.8rem;
+  color: #fff;
+  margin-bottom: 1.3rem;
+  box-shadow: 0 4px 20px rgba(30,58,95,0.2);
+}
+.kpi-banner h1 { color: #fff !important; font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.kpi-banner p  { color: rgba(255,255,255,.78); margin: .25rem 0 0; font-size: .84rem; }
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e3a5f;
+  border-left: 3px solid #2a78d6;
+  padding: .25rem 0 .25rem .75rem;
+  margin: 1.4rem 0 .9rem;
+  letter-spacing: -.01em;
+}
 </style>
 """
 
@@ -99,6 +170,27 @@ def read_excel_safe(file) -> pd.DataFrame:
         df = xl.parse(best)
     df.columns = [str(c).strip() for c in df.columns]
     return df
+
+
+def _pie_fig(labels, values, title, colors=None, hole=0.44):
+    """Donut chart with consistent professional styling."""
+    pal = colors or CAT_COLORS
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values,
+        marker=dict(colors=pal, line=dict(color=COLORS["bg"], width=2.5)),
+        hole=hole,
+        textinfo="label+percent",
+        textposition="outside",
+        textfont=dict(size=11, color=COLORS["text2"]),
+        insidetextorientation="radial",
+    ))
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text=title, font=dict(size=14, color=COLORS["primary"], weight=600)),
+        legend=dict(orientation="h", yanchor="top", y=-0.08,
+                    font=dict(size=10, color=COLORS["text2"])),
+    )
+    return fig
 
 
 def _color_pct(v: float) -> str:
@@ -270,27 +362,29 @@ def _derive_estatus(df: pd.DataFrame, cols: dict) -> pd.Series:
     return pd.Series(np.select(conditions, choices, default="Sin Gestión"), index=df.index)
 
 
-def _hbar(g, x_col, y_col, title, x_title="", color_fn=None, height_per_row=26):
+def _hbar(g, x_col, y_col, title, x_title="", color_fn=None, height_per_row=32):
     color_fn = color_fn or (lambda v: COLORS["accent"])
     colors = [color_fn(v) for v in g[x_col]]
     max_x = g[x_col].max() if len(g) else 1
     fig = go.Figure(go.Bar(
         x=g[x_col], y=g[y_col].astype(str), orientation="h",
-        marker_color=colors,
+        marker=dict(color=colors, line=dict(width=0)),
         text=[f"{v:.1f}%" if "Pct" in x_col or "pct" in x_col.lower() else f"{v:,}"
               for v in g[x_col]],
         textposition="outside",
+        textfont=dict(size=11, color=COLORS["text2"]),
     ))
     fig.update_layout(
-        **PLOTLY_LAYOUT, title=title,
-        xaxis=dict(**_AXIS_DEFAULTS, title=x_title, range=[0, max(max_x * 1.35, 1)]),
-        yaxis=dict(**_AXIS_DEFAULTS),
-        height=max(280, len(g) * height_per_row + 90),
+        **PLOTLY_LAYOUT, title=dict(text=title, font=dict(size=14, color=COLORS["primary"], weight=600)),
+        xaxis=dict(**_AXIS_DEFAULTS, title=x_title, range=[0, max(max_x * 1.38, 1)]),
+        yaxis=dict(**_AXIS_DEFAULTS, type="category"),
+        height=max(300, len(g) * height_per_row + 100),
+        bargap=0.28,
     )
     return fig
 
 
-CAMP_COLORS = ["#1a3c6e", "#3b82f6", "#10b981", "#f59e0b"]
+CAMP_COLORS = CAT_COLORS[:4]
 
 
 def _last4_camps(df: pd.DataFrame, cols: dict) -> list:
@@ -472,13 +566,16 @@ def tab_indicadores(df: pd.DataFrame):
                 if len(g):
                     fig = go.Figure(go.Scatter(
                         x=g["campania"].astype(str), y=g["PctRec"], mode="lines+markers",
-                        line=dict(color=COLORS["primary"], width=3), marker=dict(size=9),
+                        line=dict(color=CAT_COLORS[0], width=2.5),
+                        marker=dict(size=9, color=CAT_COLORS[0],
+                                    line=dict(color=COLORS["bg"], width=2)),
                         text=[f"{v:.1f}%" for v in g["PctRec"]], textposition="top center",
-                        fill="tozeroy", fillcolor="rgba(26,60,110,0.07)",
+                        textfont=dict(size=11, color=COLORS["text2"]),
+                        fill="tozeroy", fillcolor=f"rgba(42,120,214,0.08)",
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Tendencia de % Recuperación por Campaña",
-                        xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                        **PLOTLY_LAYOUT, title=dict(text="Tendencia de % Recuperación por Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                         yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
                     )
                     _chart_card(fig)
@@ -521,8 +618,8 @@ def tab_indicadores(df: pd.DataFrame):
                         text=[f"{v:.1f}%" for v in g4["PctRec"]], textposition="outside",
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="% Recuperación — Últimas 4 Campañas",
-                        xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                        **PLOTLY_LAYOUT, title=dict(text="% Recuperación — Últimas 4 Campañas", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                         yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
                     )
                     _chart_card(fig)
@@ -548,7 +645,7 @@ def tab_indicadores(df: pd.DataFrame):
                         text=[f"{v:.1f}%" for v in g_seg["PctRec"]], textposition="outside",
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="% Recuperación por Segmento",
+                        **PLOTLY_LAYOUT, title=dict(text="% Recuperación por Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)),
                         xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
                         yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
                     )
@@ -556,7 +653,7 @@ def tab_indicadores(df: pd.DataFrame):
                 with c2:
                     fig = go.Figure()
                     fig.add_bar(name="Asignado", x=g_seg["segmento"], y=g_seg["Asignado"],
-                                marker_color=COLORS["accent"],
+                                marker_color=CAT_COLORS[0],
                                 text=[fmt_currency(v) for v in g_seg["Asignado"]],
                                 textposition="outside")
                     fig.add_bar(name="Recuperado", x=g_seg["segmento"], y=g_seg["Pagado"],
@@ -565,7 +662,7 @@ def tab_indicadores(df: pd.DataFrame):
                                 textposition="outside")
                     fig.update_layout(
                         **PLOTLY_LAYOUT, barmode="group",
-                        title="Asignado vs Recuperado por Segmento",
+                        title=dict(text="Asignado vs Recuperado por Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)),
                         xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
                         yaxis=dict(**_AXIS_DEFAULTS, title="Monto ($)"),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -584,7 +681,7 @@ def tab_indicadores(df: pd.DataFrame):
                     fig.update_layout(**PLOTLY_LAYOUT,
                                       xaxis=dict(**_AXIS_DEFAULTS, title="Ruta"),
                                       yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
-                                      legend=dict(title="Segmento", orientation="h",
+                                      legend=dict(title=dict(text="Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                   yanchor="bottom", y=1.02, xanchor="right", x=1))
                     _chart_card(fig)
 
@@ -599,7 +696,7 @@ def tab_indicadores(df: pd.DataFrame):
                     fig.update_layout(**PLOTLY_LAYOUT,
                                       xaxis=dict(**_AXIS_DEFAULTS, title="División"),
                                       yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
-                                      legend=dict(title="Segmento", orientation="h",
+                                      legend=dict(title=dict(text="Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                   yanchor="bottom", y=1.02, xanchor="right", x=1))
                     _chart_card(fig)
 
@@ -639,7 +736,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.update_layout(**PLOTLY_LAYOUT,
                                           xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
                                           yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
-                                          legend=dict(title="Campaña", orientation="h",
+                                          legend=dict(title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                       yanchor="bottom", y=1.02, xanchor="right", x=1))
                         _chart_card(fig)
 
@@ -656,7 +753,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.update_layout(**PLOTLY_LAYOUT,
                                           xaxis=dict(**_AXIS_DEFAULTS, title="División"),
                                           yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
-                                          legend=dict(title="Campaña", orientation="h",
+                                          legend=dict(title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                       yanchor="bottom", y=1.02, xanchor="right", x=1))
                         _chart_card(fig)
 
@@ -695,12 +792,14 @@ def tab_indicadores(df: pd.DataFrame):
                     if pairs:
                         ls, vs, cs = zip(*pairs)
                         fig = go.Figure(go.Pie(
-                            labels=ls, values=vs, marker_colors=cs,
+                            labels=ls, values=vs,
+                            marker=dict(colors=cs, line=dict(color=COLORS["bg"], width=2)),
                             hole=0.45, textinfo="label+percent+value",
                             textposition="outside",
+                            textfont=dict(size=11, color=COLORS["text2"]),
                         ))
-                        fig.update_layout(**PLOTLY_LAYOUT, title="Distribución de Contacto General",
-                                          legend=dict(orientation="h", yanchor="top", y=-0.1))
+                        fig.update_layout(**PLOTLY_LAYOUT, title=dict(text="Distribución de Contacto General", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                                          legend=dict(orientation="h", yanchor="top", y=-0.08))
                         _chart_card(fig)
 
                 with c2:
@@ -717,7 +816,7 @@ def tab_indicadores(df: pd.DataFrame):
                                     textposition="outside")
                         fig.update_layout(
                             **PLOTLY_LAYOUT, barmode="group",
-                            title="Contacto vs No Contacto por Segmento",
+                            title=dict(text="Contacto vs No Contacto por Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)),
                             xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
                             yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
                             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -746,7 +845,7 @@ def tab_indicadores(df: pd.DataFrame):
                             textposition="outside",
                         ))
                         fig.update_layout(
-                            **PLOTLY_LAYOUT, title="% Contacto por División",
+                            **PLOTLY_LAYOUT, title=dict(text="% Contacto por División", font=dict(size=14, color=COLORS["primary"], weight=600)),
                             xaxis=dict(**_AXIS_DEFAULTS, title="División"),
                             yaxis=dict(**_AXIS_DEFAULTS, title="% Contacto"),
                         )
@@ -788,8 +887,8 @@ def tab_indicadores(df: pd.DataFrame):
                                        marker_color=CAMP_COLORS[i % 4],
                                        text=[f"{pct:.1f}%"], textposition="outside")
                     fig_ct.update_layout(**PLOTLY_LAYOUT,
-                                         title="% Contacto por Campaña — Últimas 4",
-                                         xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                                         title=dict(text="% Contacto por Campaña — Últimas 4", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                                         xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                                          yaxis=dict(**_AXIS_DEFAULTS, title="% Contacto"),
                                          showlegend=False)
                     _chart_card(fig_ct)
@@ -818,7 +917,7 @@ def tab_indicadores(df: pd.DataFrame):
                             fig2.update_layout(**PLOTLY_LAYOUT,
                                                xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
                                                yaxis=dict(**_AXIS_DEFAULTS, title="% Contacto"),
-                                               legend=dict(title="Campaña", orientation="h",
+                                               legend=dict(title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                            yanchor="bottom", y=1.02, xanchor="right", x=1))
                             _chart_card(fig2)
 
@@ -846,12 +945,12 @@ def tab_indicadores(df: pd.DataFrame):
                     top10_d = all_counts.head(10).sort_values()
                     fig = go.Figure(go.Bar(
                         x=top10_d.values, y=top10_d.index, orientation="h",
-                        marker_color=COLORS["primary"],
+                        marker_color=CAT_COLORS[0],
                         text=[f"{v:,}" for v in top10_d.values], textposition="outside",
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Top 10 Dictaminaciones de Llamada",
-                        xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas",
+                        **PLOTLY_LAYOUT, title=dict(text="Top 10 Dictaminaciones de Llamada", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Cuentas", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                    range=[0, top10_d.max() * 1.4]),
                         yaxis=dict(**_AXIS_DEFAULTS),
                         height=max(300, len(top10_d) * 32 + 90),
@@ -862,16 +961,8 @@ def tab_indicadores(df: pd.DataFrame):
                     otros = all_counts[6:].sum()
                     if otros > 0:
                         top6 = pd.concat([top6, pd.Series({"Otros": otros})])
-                    fig = go.Figure(go.Pie(
-                        labels=top6.index, values=top6.values,
-                        hole=0.42, textinfo="label+percent",
-                        textposition="outside",
-                    ))
-                    fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Distribución General de Dictaminaciones",
-                        legend=dict(orientation="h", yanchor="top", y=-0.1),
-                    )
-                    _chart_card(fig)
+                    _chart_card(_pie_fig(top6.index.tolist(), top6.values.tolist(),
+                                         "Distribución General de Dictaminaciones"))
 
                 # Tabla completa de dictaminaciones
                 tbl_dict = all_counts.reset_index()
@@ -902,7 +993,7 @@ def tab_indicadores(df: pd.DataFrame):
                         **PLOTLY_LAYOUT,
                         xaxis=dict(**_AXIS_DEFAULTS, title=geo_key.title()),
                         yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                        legend=dict(title="Dictaminación", orientation="h",
+                        legend=dict(title=dict(text="Dictaminación", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                     yanchor="bottom", y=1.02, xanchor="right", x=1),
                         height=420,
                     )
@@ -937,14 +1028,14 @@ def tab_indicadores(df: pd.DataFrame):
                     vdf = vdf.sort_values("Cuentas")
                     fig = go.Figure(go.Bar(
                         x=vdf["Pct"], y=vdf["Resultado"], orientation="h",
-                        marker_color=COLORS["teal"],
+                        marker_color=CAT_COLORS[1],
                         text=[f"{p:.1f}%  ({c:,})" for p, c in zip(vdf["Pct"], vdf["Cuentas"])],
                         textposition="outside",
                     ))
                     fig.update_layout(
                         **PLOTLY_LAYOUT,
                         title=f"Resultados de Visitas — % del total ({total_vis:,} visitas)",
-                        xaxis=dict(**_AXIS_DEFAULTS, title="% del Total de Visitas",
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="% del Total de Visitas", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                    range=[0, min(vdf["Pct"].max() * 1.45, 100)]),
                         yaxis=dict(**_AXIS_DEFAULTS),
                         height=max(300, len(vdf) * 30 + 90),
@@ -1043,12 +1134,13 @@ def tab_indicadores(df: pd.DataFrame):
                 barmode="stack", text="Cuentas",
                 orientation="h",
                 category_orders={geo_key: geo_order},
+                color_discrete_sequence=CAT_COLORS,
                 labels={geo_key: geo_label, "Cuentas": "Cuentas", "Categoria": "Resultado"},
-                title=chart_title,
             )
-            fig.update_traces(textposition="inside", textfont_size=10)
+            fig.update_traces(textposition="inside", textfont=dict(size=10, color="#ffffff"))
             fig.update_layout(
                 **PLOTLY_LAYOUT,
+                title=dict(text=chart_title, font=dict(size=14, color=COLORS["primary"], weight=600)),
                 xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
                 yaxis=dict(
                     type="category",
@@ -1057,11 +1149,12 @@ def tab_indicadores(df: pd.DataFrame):
                     gridcolor=COLORS["grid"],
                     zeroline=False,
                     showline=False,
-                    tickfont=dict(size=12),
+                    tickfont=dict(size=12, color=COLORS["text2"]),
                 ),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                height=max(380, len(geo_order) * 44 + 100),
-                bargap=0.25,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                            font=dict(size=10, color=COLORS["text2"])),
+                height=max(380, len(geo_order) * 46 + 110),
+                bargap=0.22,
             )
             _chart_card(fig)
 
@@ -1114,7 +1207,7 @@ def tab_indicadores(df: pd.DataFrame):
                 fig.update_traces(textposition="outside")
                 fig.update_layout(
                     **PLOTLY_LAYOUT,
-                    xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                    xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                     yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 )
@@ -1145,26 +1238,19 @@ def tab_indicadores(df: pd.DataFrame):
                     otros_z = sit_cnt_z[6:].sum()
                     if otros_z > 0:
                         top6_z = pd.concat([top6_z, pd.Series({"Otros": otros_z})])
-                    fig = go.Figure(go.Pie(
-                        labels=top6_z.index, values=top6_z.values,
-                        hole=0.42, textinfo="label+percent", textposition="outside",
-                    ))
-                    fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Distribución de Situación de Domicilio",
-                        legend=dict(orientation="h", yanchor="top", y=-0.1),
-                    )
-                    _chart_card(fig)
+                    _chart_card(_pie_fig(top6_z.index.tolist(), top6_z.values.tolist(),
+                                         "Distribución de Situación de Domicilio"))
                 with c2:
                     bar_z = sit_cnt_z.head(10).sort_values()
                     fig = go.Figure(go.Bar(
                         x=bar_z.values, y=bar_z.index, orientation="h",
-                        marker_color=COLORS["accent"],
+                        marker_color=CAT_COLORS[0],
                         text=[f"{v:,}  ({v/total_dom_z*100:.1f}%)" for v in bar_z.values],
                         textposition="outside",
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Top 10 Situaciones de Domicilio",
-                        xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas",
+                        **PLOTLY_LAYOUT, title=dict(text="Top 10 Situaciones de Domicilio", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Cuentas", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                    range=[0, bar_z.max() * 1.5]),
                         yaxis=dict(**_AXIS_DEFAULTS),
                         height=max(280, len(bar_z) * 30 + 90),
@@ -1187,7 +1273,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.update_layout(**PLOTLY_LAYOUT,
                                           xaxis=dict(**_AXIS_DEFAULTS, title="Situación"),
                                           yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                                          legend=dict(title="Segmento", orientation="h",
+                                          legend=dict(title=dict(text="Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                       yanchor="bottom", y=1.02, xanchor="right", x=1))
                         _chart_card(fig)
 
@@ -1206,7 +1292,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.update_layout(**PLOTLY_LAYOUT,
                                           xaxis=dict(**_AXIS_DEFAULTS, title="División"),
                                           yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                                          legend=dict(title="Situación", orientation="h",
+                                          legend=dict(title=dict(text="Situación", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                       yanchor="bottom", y=1.02, xanchor="right", x=1))
                         _chart_card(fig)
 
@@ -1248,7 +1334,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.update_layout(**PLOTLY_LAYOUT,
                                           xaxis=dict(**_AXIS_DEFAULTS, title="Situación"),
                                           yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                                          legend=dict(title="Campaña", orientation="h",
+                                          legend=dict(title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
                                                       yanchor="bottom", y=1.02, xanchor="right", x=1))
                         _chart_card(fig)
 
@@ -1280,27 +1366,20 @@ def tab_indicadores(df: pd.DataFrame):
                     otros = sit_counts[6:].sum()
                     if otros > 0:
                         top6 = pd.concat([top6, pd.Series({"Otros": otros})])
-                    fig = go.Figure(go.Pie(
-                        labels=top6.index, values=top6.values,
-                        hole=0.42, textinfo="label+percent",
-                        textposition="outside",
-                    ))
-                    fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Participación por Situación de Entrega",
-                        legend=dict(orientation="h", yanchor="top", y=-0.1),
-                    )
-                    _chart_card(fig)
+                    _chart_card(_pie_fig(top6.index.tolist(), top6.values.tolist(),
+                                         "Participación por Situación de Entrega"))
                 with c2:
                     bar_d = sit_counts.head(10).sort_values()
                     fig = go.Figure(go.Bar(
                         x=bar_d.values, y=bar_d.index, orientation="h",
-                        marker_color=COLORS["primary"],
+                        marker=dict(color=CAT_COLORS[0], line=dict(width=0)),
                         text=[f"{v:,}  ({v/total_dom*100:.1f}%)" for v in bar_d.values],
                         textposition="outside",
+                        textfont=dict(size=11, color=COLORS["text2"]),
                     ))
                     fig.update_layout(
-                        **PLOTLY_LAYOUT, title="Ranking de Situaciones de Entrega (Top 10)",
-                        xaxis=dict(**_AXIS_DEFAULTS, title="Pedidos",
+                        **PLOTLY_LAYOUT, title=dict(text="Ranking de Situaciones de Entrega (Top 10)", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Pedidos", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                    range=[0, bar_d.max() * 1.5]),
                         yaxis=dict(**_AXIS_DEFAULTS),
                         height=max(300, len(bar_d) * 32 + 90),
@@ -1345,14 +1424,14 @@ def tab_indicadores(df: pd.DataFrame):
                             x=g_ger["Pedidos"],
                             y=g_ger["Zona_str"],
                             orientation="h",
-                            marker_color=COLORS["accent"],
+                            marker_color=CAT_COLORS[0],
                             text=[f"{ped:,}  ({pct:.1f}%)" for ped, pct in zip(g_ger["Pedidos"], g_ger["Pct"])],
                             textposition="outside",
                         ))
                         fig.update_layout(
                             **PLOTLY_LAYOUT,
                             title=f"Top 10 Zonas — Entregado por Gerente ({total_ger:,} pedidos)",
-                            xaxis=dict(**_AXIS_DEFAULTS, title="Pedidos",
+                            xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Pedidos", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                        range=[0, g_ger["Pedidos"].max() * 1.45]),
                             yaxis=dict(
                                 type="category",
@@ -1420,12 +1499,12 @@ def tab_indicadores(df: pd.DataFrame):
                             tr_g, x="Campaña", y="Pedidos", color="Situación",
                             barmode="group", text="Pedidos",
                             labels={"Campaña": "Campaña", "Pedidos": "Pedidos"},
-                            title="Tendencia de Distribución por Campaña (Top 3 situaciones)",
+                            title=dict(text="Tendencia de Distribución por Campaña (Top 3 situaciones)", font=dict(size=14, color=COLORS["primary"], weight=600)),
                         )
                         fig.update_traces(textposition="outside")
                         fig.update_layout(
                             **PLOTLY_LAYOUT,
-                            xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                            xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                             yaxis=dict(**_AXIS_DEFAULTS, title="Pedidos"),
                             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                         )
@@ -1490,27 +1569,20 @@ def tab_indicadores(df: pd.DataFrame):
                         otros_v = vis_counts[6:].sum()
                         if otros_v > 0:
                             top6v = pd.concat([top6v, pd.Series({"Otros": otros_v})])
-                        fig = go.Figure(go.Pie(
-                            labels=top6v.index, values=top6v.values,
-                            hole=0.42, textinfo="label+percent",
-                            textposition="outside",
-                        ))
-                        fig.update_layout(
-                            **PLOTLY_LAYOUT, title="Participación por Resultado de Visita",
-                            legend=dict(orientation="h", yanchor="top", y=-0.1),
-                        )
-                        _chart_card(fig)
+                        _chart_card(_pie_fig(top6v.index.tolist(), top6v.values.tolist(),
+                                             "Participación por Resultado de Visita"))
                     with c2:
                         bar_v = vis_counts.head(10).sort_values()
                         fig = go.Figure(go.Bar(
                             x=bar_v.values, y=bar_v.index, orientation="h",
-                            marker_color=COLORS["teal"],
+                            marker=dict(color=CAT_COLORS[1], line=dict(width=0)),
                             text=[f"{v:,}  ({v/total_vis*100:.1f}%)" for v in bar_v.values],
                             textposition="outside",
+                            textfont=dict(size=11, color=COLORS["text2"]),
                         ))
                         fig.update_layout(
-                            **PLOTLY_LAYOUT, title="Ranking de Resultados de Visita (Top 10)",
-                            xaxis=dict(**_AXIS_DEFAULTS, title="Visitas",
+                            **PLOTLY_LAYOUT, title=dict(text="Ranking de Resultados de Visita (Top 10)", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Visitas", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                        range=[0, bar_v.max() * 1.5]),
                             yaxis=dict(**_AXIS_DEFAULTS),
                             height=max(300, len(bar_v) * 32 + 90),
@@ -1574,8 +1646,8 @@ def tab_indicadores(df: pd.DataFrame):
                             ))
                             fig.update_layout(
                                 **PLOTLY_LAYOUT,
-                                title="Top 10 Zonas con Domicilio No Localizado (% sobre asignadas)",
-                                xaxis=dict(**_AXIS_DEFAULTS, title="Cuentas sin localizar",
+                                title=dict(text="Top 10 Zonas con Domicilio No Localizado (% sobre asignadas)", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                                xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Cuentas sin localizar", font=dict(size=14, color=COLORS["primary"], weight=600)),
                                            range=[0, g_noloc["Sin Localizar"].max() * 1.45]),
                                 yaxis=dict(
                                     type="category",
@@ -1614,12 +1686,12 @@ def tab_indicadores(df: pd.DataFrame):
                                 tv_g, x="Campaña", y="Visitas", color="Resultado",
                                 barmode="group", text="Visitas",
                                 labels={"Campaña": "Campaña", "Visitas": "Visitas"},
-                                title="Tendencia de Visitas por Campaña (Top 3 resultados)",
+                                title=dict(text="Tendencia de Visitas por Campaña (Top 3 resultados)", font=dict(size=14, color=COLORS["primary"], weight=600)),
                             )
                             fig.update_traces(textposition="outside")
                             fig.update_layout(
                                 **PLOTLY_LAYOUT,
-                                xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
+                                xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                                 yaxis=dict(**_AXIS_DEFAULTS, title="Visitas"),
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                             )
