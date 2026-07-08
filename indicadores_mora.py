@@ -58,13 +58,14 @@ PLOTLY_LAYOUT = dict(
         bgcolor=COLORS["bg"], bordercolor=COLORS["grid"],
         font=dict(color=COLORS["text"], family=_FONT, size=12),
     ),
-    legend=dict(
-        orientation="h", yanchor="bottom", y=1.02,
-        xanchor="right", x=1,
-        font=dict(size=11, color=COLORS["text2"]),
-        bgcolor="rgba(0,0,0,0)", borderwidth=0,
-    ),
     colorway=CAT_COLORS,
+)
+
+_LEGEND_H = dict(
+    orientation="h", yanchor="bottom", y=1.02,
+    xanchor="right", x=1,
+    font=dict(size=11, color=COLORS["text2"]),
+    bgcolor="rgba(0,0,0,0)", borderwidth=0,
 )
 
 _AXIS_DEFAULTS = dict(
@@ -187,7 +188,7 @@ def _pie_fig(labels, values, title, colors=None, hole=0.44):
     fig.update_layout(
         **PLOTLY_LAYOUT,
         title=dict(text=title, font=dict(size=14, color=COLORS["primary"], weight=600)),
-        legend=dict(orientation="h", yanchor="top", y=-0.08,
+        legend=dict(orientation="h", yanchor="top", y=-0.08, xanchor="center", x=0.5,
                     font=dict(size=10, color=COLORS["text2"])),
     )
     return fig
