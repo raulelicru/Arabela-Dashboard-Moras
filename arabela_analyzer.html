@@ -616,7 +616,9 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
         <div id="dupMapWrap" style="border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#eef4ff 0%,#f1f5fb 100%);">
           <div id="dupPlotlyMap" style="width:100%;"></div>
         </div>
-        <div id="dupMapLegend" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;flex-wrap:wrap;"></div>
+        <div id="dupMapLegend" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:#898781;font-family:Inter,sans-serif;"></div>
+        <!-- Panel de detalle por estado (aparece al hacer clic) -->
+        <div id="dupStatePanel" style="display:none;margin-top:14px;background:#fcfcfb;border:1px solid #e1e0d9;border-radius:12px;padding:18px 22px;box-shadow:0 2px 12px rgba(30,58,95,0.08);"></div>
       </div>
 
       <div class="card">
@@ -1566,110 +1568,164 @@ const MX_STATES = [
 let _dupMapData = null;
 let _dupMapView = 'estado';
 
+// Aliases: normalize GeoJSON state names → our data's normalized keys
+const _STATE_ALIAS = {
+  'CIUDAD DE MEXICO': 'CDMX',
+  'MEXICO': 'ESTADO DE MEXICO',
+  'MICHOACAN DE OCAMPO': 'MICHOACAN',
+  'VERACRUZ DE IGNACIO DE LA LLAVE': 'VERACRUZ',
+  'COAHUILA DE ZARAGOZA': 'COAHUILA',
+};
+
+function _normSt(s) {
+  return (s||'').trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^A-Z ]/g,'').trim();
+}
+
+function _lookupEst(normed, byEst) {
+  if (byEst[normed] !== undefined) return byEst[normed];
+  const alias = _STATE_ALIAS[normed];
+  if (alias && byEst[alias] !== undefined) return byEst[alias];
+  // Reverse alias
+  for (const [k,v] of Object.entries(_STATE_ALIAS)) {
+    if (v === normed && byEst[k] !== undefined) return byEst[k];
+  }
+  return 0;
+}
+
 function setMapView(view) {
   _dupMapView = view;
   document.getElementById('mapViewEst').className = view==='estado' ? 'btn btn-primary' : 'btn btn-ghost';
   document.getElementById('mapViewDiv').className = view==='division' ? 'btn btn-primary' : 'btn btn-ghost';
   document.getElementById('mapViewEst').style.cssText = 'font-size:12px;padding:5px 13px;';
   document.getElementById('mapViewDiv').style.cssText = 'font-size:12px;padding:5px 13px;';
+  const statePanel = document.getElementById('dupStatePanel');
+  if (statePanel) statePanel.style.display = 'none';
   if (_dupMapData) renderDupMap(_dupMapData, view);
 }
 
-function renderDupMap(data, view) {
+async function renderDupMap(data, view) {
   _dupMapData = data;
-  const mapDiv = document.getElementById('dupPlotlyMap');
+  const mapDiv   = document.getElementById('dupPlotlyMap');
   const legendEl = document.getElementById('dupMapLegend');
+  const statePanel = document.getElementById('dupStatePanel');
   if (!mapDiv || typeof Plotly === 'undefined') return;
 
-  const dupRows = data.filter(r => r.DOMICILIO_DUPLICADO === 'DUPLICADO');
-  const normKey = s => (s||'').toUpperCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^A-Z ]/g,'').trim();
-
-  const _FONT = "Inter, -apple-system, 'Segoe UI', sans-serif";
-  const _TEXT2 = '#52514e';
-  const _GRID = '#e1e0d9';
   legendEl.innerHTML = '';
+  if (statePanel) statePanel.style.display = 'none';
+
+  const dupRows = data.filter(r => r.DOMICILIO_DUPLICADO === 'DUPLICADO');
+
+  const _F  = "Inter, -apple-system, 'Segoe UI', sans-serif";
+  const _T2 = '#52514e';
 
   if (view === 'estado') {
-    // ── Group by ESTADO
+    // ── Count duplicates per state (our normalized key)
     const byEst = {};
     dupRows.forEach(r => {
-      const k = normKey(r.ESTADO);
+      const k = _normSt(r.ESTADO);
       if (k && k !== 'SIN ESTADO') byEst[k] = (byEst[k]||0)+1;
     });
 
-    const lats = [], lons = [], texts = [], counts = [];
-    const seenLabel = new Set();
-    MX_STATES.forEach(([key, label, lat, lon]) => {
-      if (seenLabel.has(label)) return;
-      seenLabel.add(label);
-      const k = normKey(key);
-      const count = byEst[k] || 0;
-      if (count > 0) {
-        lats.push(lat); lons.push(lon);
-        texts.push(label); counts.push(count);
-      }
-    });
+    // ── Loading indicator
+    mapDiv.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:300px;
+      gap:12px;color:#94a3b8;font-family:Inter,sans-serif;font-size:13px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2a78d6" stroke-width="2.5"
+        style="animation:_spin .9s linear infinite;flex-shrink:0;">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>Cargando mapa de México…</div>
+    <style>@keyframes _spin{to{transform:rotate(360deg)}}</style>`;
 
-    if (!counts.length) {
-      mapDiv.innerHTML = '<p style="text-align:center;padding:100px 0;color:#94a3b8;font-family:Inter,sans-serif;">Sin datos de estado — prueba la vista Por División.</p>';
+    // ── Fetch Mexico states GeoJSON
+    let geo;
+    try {
+      const r = await fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      geo = await r.json();
+    } catch(e) {
+      console.warn('GeoJSON fetch failed — using bubble fallback', e);
+      _renderBubbleFallback(dupRows, byEst, _F, _T2);
       return;
     }
 
-    const maxC = Math.max(...counts);
-    const sizes = counts.map(c => 10 + Math.sqrt(c / maxC) * 44);
+    // ── Detect property key for state name in this GeoJSON
+    const _sampleProps = geo.features[0]?.properties || {};
+    const _nameKey = _sampleProps.name ? 'name'
+                   : _sampleProps.NOMBRE ? 'NOMBRE'
+                   : _sampleProps.NOM_ENT ? 'NOM_ENT' : 'name';
 
-    const trace = {
-      type: 'scattergeo',
-      lat: lats, lon: lons, text: texts,
-      marker: {
-        size: sizes,
-        color: counts,
-        colorscale: [
-          [0.00, '#cde2fb'], [0.20, '#86b6ef'],
-          [0.45, '#3987e5'], [0.72, '#2a78d6'], [1.00, '#1c5cab']
-        ],
-        cmin: 0, cmax: maxC,
-        showscale: true,
-        colorbar: {
-          title: { text: 'Cuentas', side: 'right', font: { size: 11, color: _TEXT2, family: _FONT } },
-          thickness: 12, len: 0.55, x: 1.01,
-          tickfont: { size: 10, color: _TEXT2, family: _FONT },
-          borderwidth: 0, bgcolor: 'rgba(0,0,0,0)', outlinewidth: 0
-        },
-        line: { color: 'white', width: 2 },
-        opacity: 0.88
+    // ── Build arrays
+    const locs = [], zs = [];
+    geo.features.forEach(f => {
+      const raw  = f.properties[_nameKey] || '';
+      const norm = _normSt(raw);
+      locs.push(raw);
+      zs.push(_lookupEst(norm, byEst));
+    });
+
+    const maxZ = Math.max(...zs, 1);
+
+    const choroplethTrace = {
+      type: 'choropleth',
+      geojson: geo,
+      featureidkey: 'properties.' + _nameKey,
+      locations: locs,
+      z: zs,
+      zmin: 0, zmax: maxZ,
+      colorscale: [
+        [0,     '#f0f6ff'],
+        [0.001, '#cde2fb'],
+        [0.15,  '#86b6ef'],
+        [0.40,  '#3987e5'],
+        [0.70,  '#2a78d6'],
+        [1.00,  '#1c5cab']
+      ],
+      colorbar: {
+        title: { text: 'Duplicados', side: 'right', font: { size: 11, color: _T2, family: _F } },
+        thickness: 12, len: 0.55, x: 1.01,
+        tickfont: { size: 10, color: _T2, family: _F },
+        borderwidth: 0, bgcolor: 'rgba(0,0,0,0)', outlinewidth: 0
       },
-      customdata: counts,
-      hovertemplate: '<b>%{text}</b><br>Domicilios duplicados: <b>%{customdata:,}</b><extra></extra>',
-      mode: 'markers'
+      marker: { line: { color: 'white', width: 1.5 } },
+      hovertemplate: '<b>%{location}</b><br>Duplicados: <b>%{z}</b><br><i style="color:#94a3b8">Clic para ver municipios</i><extra></extra>'
     };
 
-    const layout = {
+    const mapLayout = {
       geo: {
         scope: 'north america',
         projection: { type: 'mercator' },
-        showland: true,  landcolor: '#dce9f5',
-        showocean: true, oceancolor: '#eef4ff',
-        showlakes: true, lakecolor: '#d8ecff',
-        showcountries: true, countrycolor: '#9bb3cc', countrywidth: 1.2,
-        showsubunits: true, subunitcolor: '#b8cde8', subunitwidth: 0.6,
+        showland: true,  landcolor: '#edf2f7',
+        showocean: true, oceancolor: '#ddeeff',
+        showlakes: true, lakecolor: '#c8e0f5',
+        showcountries: true, countrycolor: '#aabdd4', countrywidth: 1.2,
+        showsubunits: false,
         lonaxis: { range: [-119, -85] },
         lataxis: { range: [13.5, 33.5] },
         bgcolor: 'rgba(0,0,0,0)', framecolor: 'rgba(0,0,0,0)', framewidth: 0
       },
       paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-      margin: { l: 0, r: 50, t: 8, b: 8 },
+      margin: { l: 0, r: 52, t: 8, b: 8 },
       height: 440,
-      font: { family: _FONT, color: _TEXT2, size: 11 },
+      font: { family: _F, color: _T2, size: 11 },
       hoverlabel: {
-        bgcolor: '#ffffff', bordercolor: '#e1e0d9',
-        font: { family: _FONT, size: 12.5, color: '#0b0b0b' }
+        bgcolor: '#fff', bordercolor: '#e1e0d9',
+        font: { family: _F, size: 12.5, color: '#0b0b0b' }
       }
     };
 
-    Plotly.newPlot(mapDiv, [trace], layout, { displayModeBar: false, responsive: true, scrollZoom: false });
+    Plotly.newPlot(mapDiv, [choroplethTrace], mapLayout,
+      { displayModeBar: false, responsive: true, scrollZoom: false });
+
+    legendEl.textContent = 'Haz clic en un estado para ver el desglose por municipio';
+
+    // ── Click → state detail panel
+    mapDiv.on('plotly_click', function(ev) {
+      if (!ev.points || !ev.points[0]) return;
+      const loc   = ev.points[0].location;
+      const count = ev.points[0].z || 0;
+      _showStateDetail(data, loc, count, _F, _T2);
+    });
 
   } else {
     // ── Por División — horizontal bar chart
@@ -1679,7 +1735,7 @@ function renderDupMap(data, view) {
       byDiv[k] = (byDiv[k]||0)+1;
     });
 
-    const entries = Object.entries(byDiv).sort((a,b)=>b[1]-a[1]).slice(0,20);
+    const entries = Object.entries(byDiv).sort((a,b)=>b[1]-a[1]).slice(0, 20);
     if (!entries.length) {
       mapDiv.innerHTML = '<p style="text-align:center;padding:100px 0;color:#94a3b8;font-family:Inter,sans-serif;">Sin datos de división disponibles.</p>';
       return;
@@ -1688,40 +1744,126 @@ function renderDupMap(data, view) {
     const labels = entries.map(([d]) => d);
     const values = entries.map(([,v]) => v);
     const CAT = ['#2a78d6','#1baf7a','#e87ba4','#eb6834','#4a3aa7','#eda100','#e34948','#008300'];
-    const colors = labels.map((_,i) => CAT[i % CAT.length]);
 
-    const trace = {
+    const barTrace = {
       type: 'bar', orientation: 'h',
       x: values, y: labels,
-      marker: { color: colors, opacity: 0.85, line: { width: 0 } },
+      marker: { color: labels.map((_,i) => CAT[i % CAT.length]), opacity: 0.85, line: { width: 0 } },
       text: values.map(v => v.toLocaleString('es-MX')),
       textposition: 'outside',
-      textfont: { size: 11, color: _TEXT2, family: _FONT },
+      textfont: { size: 11, color: _T2, family: _F },
       hovertemplate: '<b>%{y}</b><br>Duplicados: <b>%{x:,}</b><extra></extra>',
       cliponaxis: false
     };
 
-    const layout = {
+    Plotly.newPlot(mapDiv, [barTrace], {
       paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#f9f9f7',
       margin: { l: 140, r: 70, t: 20, b: 40 },
       height: Math.max(320, entries.length * 38 + 80),
-      xaxis: {
-        showgrid: true, gridcolor: _GRID, gridwidth: 1,
-        zeroline: false, tickfont: { size: 10, color: _TEXT2, family: _FONT }
-      },
-      yaxis: {
-        autorange: 'reversed',
-        tickfont: { size: 11, color: '#0b0b0b', family: _FONT }
-      },
-      font: { family: _FONT, color: _TEXT2 },
-      hoverlabel: {
-        bgcolor: '#ffffff', bordercolor: '#e1e0d9',
-        font: { family: _FONT, size: 12.5, color: '#0b0b0b' }
-      }
-    };
-
-    Plotly.newPlot(mapDiv, [trace], layout, { displayModeBar: false, responsive: true });
+      xaxis: { showgrid: true, gridcolor: '#e1e0d9', zeroline: false, tickfont: { size: 10, color: _T2, family: _F } },
+      yaxis: { autorange: 'reversed', tickfont: { size: 11, color: '#0b0b0b', family: _F } },
+      font: { family: _F, color: _T2 },
+      hoverlabel: { bgcolor: '#fff', bordercolor: '#e1e0d9', font: { family: _F, size: 12.5, color: '#0b0b0b' } }
+    }, { displayModeBar: false, responsive: true });
   }
+}
+
+// Fallback when GeoJSON fetch fails — uses bubbles on scattergeo
+function _renderBubbleFallback(dupRows, byEst, _F, _T2) {
+  const mapDiv = document.getElementById('dupPlotlyMap');
+  const lats=[], lons=[], texts=[], counts=[];
+  const seen = new Set();
+  MX_STATES.forEach(([key, label, lat, lon]) => {
+    if (seen.has(label)) return; seen.add(label);
+    const c = _lookupEst(_normSt(key), byEst);
+    if (c > 0) { lats.push(lat); lons.push(lon); texts.push(label); counts.push(c); }
+  });
+  const maxC = Math.max(...counts, 1);
+  Plotly.newPlot(mapDiv, [{
+    type: 'scattergeo', lat: lats, lon: lons, text: texts,
+    marker: { size: counts.map(c => 10 + Math.sqrt(c/maxC)*44),
+      color: counts, colorscale: [[0,'#cde2fb'],[0.5,'#3987e5'],[1,'#1c5cab']],
+      showscale: true, line: { color: 'white', width: 2 }, opacity: 0.88 },
+    customdata: counts,
+    hovertemplate: '<b>%{text}</b><br>Duplicados: <b>%{customdata:,}</b><extra></extra>',
+    mode: 'markers'
+  }], {
+    geo: { scope: 'north america', projection: { type: 'mercator' },
+      showland: true, landcolor: '#dce9f5', showocean: true, oceancolor: '#eef4ff',
+      showcountries: true, countrycolor: '#9bb3cc', countrywidth: 1.2,
+      showsubunits: true, subunitcolor: '#b8cde8', subunitwidth: 0.6,
+      lonaxis: { range: [-119,-85] }, lataxis: { range: [13.5,33.5] },
+      bgcolor: 'rgba(0,0,0,0)', framecolor: 'rgba(0,0,0,0)', framewidth: 0 },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    margin: { l:0, r:50, t:8, b:8 }, height: 440,
+    font: { family: _F, color: _T2 }
+  }, { displayModeBar: false, responsive: true, scrollZoom: false });
+}
+
+// State detail panel — municipality breakdown
+function _showStateDetail(data, stateName, stateCount, _F, _T2) {
+  const panelEl = document.getElementById('dupStatePanel');
+  if (!panelEl) return;
+
+  // Filter duplicates for this state
+  const rows = data.filter(r =>
+    r.DOMICILIO_DUPLICADO === 'DUPLICADO' &&
+    _normSt(r.ESTADO) === _normSt(stateName)
+  );
+
+  // Determine best municipality field
+  const munField = rows[0]?.MUNICIPIO !== undefined ? 'MUNICIPIO' : 'POBLACION';
+
+  const byMun = {};
+  rows.forEach(r => {
+    const m = ((r[munField] || r.POBLACION || r.COLONIA || '')).trim() || 'Sin municipio';
+    byMun[m] = (byMun[m]||0)+1;
+  });
+
+  const entries = Object.entries(byMun).sort((a,b)=>b[1]-a[1]).slice(0, 15);
+  const total   = stateCount || rows.length || 1;
+  const CAT     = ['#2a78d6','#1baf7a','#e87ba4','#eb6834','#4a3aa7','#eda100','#e34948','#008300'];
+
+  panelEl.style.display = 'block';
+  panelEl.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#898781;margin-bottom:4px;">Estado seleccionado</div>
+        <div style="font-size:22px;font-weight:700;color:#1e3a5f;line-height:1.1;">${stateName}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:#898781;">Total duplicados</div>
+          <div style="font-size:30px;font-weight:700;color:#2a78d6;line-height:1;">${Number(total).toLocaleString('es-MX')}</div>
+        </div>
+        <button onclick="document.getElementById('dupStatePanel').style.display='none'"
+          style="background:none;border:1px solid #e1e0d9;border-radius:8px;padding:7px 12px;cursor:pointer;
+                 color:#52514e;font-size:12px;font-family:Inter,sans-serif;line-height:1;white-space:nowrap;">✕ Cerrar</button>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:#1e3a5f;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">
+      ${munField === 'MUNICIPIO' ? 'Municipios' : 'Poblaciones'} con mayor concentración de duplicados
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${entries.map(([mun, cnt], i) => {
+        const pct  = (cnt / total * 100).toFixed(1);
+        const col  = CAT[i % CAT.length];
+        return `<div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0;box-shadow:0 0 0 2px ${col}22;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:8px;">
+              <span style="font-size:12.5px;color:#0b0b0b;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;font-family:${_F};">${mun}</span>
+              <span style="font-size:11.5px;color:#52514e;font-weight:600;white-space:nowrap;font-family:${_F};">${cnt.toLocaleString('es-MX')} <span style="font-weight:400;color:#898781;">(${pct}%)</span></span>
+            </div>
+            <div style="height:5px;border-radius:3px;background:#e1e0d9;overflow:hidden;">
+              <div style="height:100%;background:${col};width:${pct}%;border-radius:3px;"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${entries.length === 0 ? '<p style="color:#94a3b8;font-size:12px;margin:0;">Sin datos de municipio disponibles.</p>' : ''}
+  `;
 }
 
 /* ============================================================
