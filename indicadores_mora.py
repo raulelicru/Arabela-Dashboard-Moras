@@ -1427,8 +1427,38 @@ def tab_indicadores(df: pd.DataFrame):
                             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                         )
                         _chart_card(fig)
+                        # Pivot descargable: situaciones x campaña
+                        tr_pivot = tr_g.pivot_table(
+                            index="Campaña", columns="Situación", values="Pedidos", fill_value=0
+                        ).reset_index()
+                        tr_pivot.columns.name = None
+                        tr_pivot["Total"] = tr_pivot.iloc[:, 1:].sum(axis=1)
+                        _df_excel(tr_pivot, "tendencia_distribucion_campana.xlsx")
 
                 _camp_cat_section(df, sit_cie_col, "distribucion_entrega")
+
+                # ── Descarga por situación individual con desglose de zona ────
+                if zona_col_d and zona_col_d in df.columns:
+                    _section("Descarga por Situación de Entrega — Detalle por Zona")
+                    sit_unicas = sit_counts.index.tolist()
+                    cols_dl = st.columns(min(len(sit_unicas), 4))
+                    for i, sit_lbl in enumerate(sit_unicas):
+                        col_idx = i % 4
+                        msk_sit = df[sit_cie_col].fillna("").astype(str).str.strip() == sit_lbl
+                        tbl_sit_zona = (
+                            df[msk_sit]
+                            .groupby(zona_col_d)
+                            .size()
+                            .reset_index(name="Pedidos")
+                            .sort_values("Pedidos", ascending=False)
+                        )
+                        tbl_sit_zona = tbl_sit_zona.rename(columns={zona_col_d: "Zona"})
+                        tbl_sit_zona["Situación"] = sit_lbl
+                        tbl_sit_zona = tbl_sit_zona[["Situación", "Zona", "Pedidos"]]
+                        safe_lbl = sit_lbl[:25].replace(" ", "_").lower()
+                        with cols_dl[col_idx]:
+                            _df_excel(tbl_sit_zona, f"zona_{safe_lbl}.xlsx",
+                                      btn_label=f"📥 {sit_lbl[:30]}")
 
         # ── Visitas (Col AO) ──────────────────────────────────────────────────
         with dir_sub[2]:
