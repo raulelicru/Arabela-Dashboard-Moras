@@ -1563,13 +1563,14 @@ def tab_indicadores(df: pd.DataFrame):
                         fig = px.bar(
                             tr_g, x="Campaña", y="Pedidos", color="Situación",
                             barmode="group", text="Pedidos",
+                            color_discrete_sequence=CAT_COLORS,
                             labels={"Campaña": "Campaña", "Pedidos": "Pedidos"},
-                            title=dict(text="Tendencia de Distribución por Campaña (Top 3 situaciones)", font=dict(size=14, color=COLORS["primary"], weight=600)),
                         )
-                        fig.update_traces(textposition="outside")
+                        fig.update_traces(textposition="outside", textfont=dict(size=11))
                         fig.update_layout(
                             **PLOTLY_LAYOUT,
-                            xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
+                            title=dict(text="Tendencia de Distribución por Campaña (Top 3 situaciones)", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
                             yaxis=dict(**_AXIS_DEFAULTS, title="Pedidos"),
                             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                         )
@@ -1750,13 +1751,14 @@ def tab_indicadores(df: pd.DataFrame):
                             fig = px.bar(
                                 tv_g, x="Campaña", y="Visitas", color="Resultado",
                                 barmode="group", text="Visitas",
+                                color_discrete_sequence=CAT_COLORS,
                                 labels={"Campaña": "Campaña", "Visitas": "Visitas"},
-                                title=dict(text="Tendencia de Visitas por Campaña (Top 3 resultados)", font=dict(size=14, color=COLORS["primary"], weight=600)),
                             )
-                            fig.update_traces(textposition="outside")
+                            fig.update_traces(textposition="outside", textfont=dict(size=11))
                             fig.update_layout(
                                 **PLOTLY_LAYOUT,
-                                xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
+                                title=dict(text="Tendencia de Visitas por Campaña (Top 3 resultados)", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                                xaxis=dict(**_AXIS_DEFAULTS, title="Campaña", type="category"),
                                 yaxis=dict(**_AXIS_DEFAULTS, title="Visitas"),
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                             )
