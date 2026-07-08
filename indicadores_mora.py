@@ -1311,7 +1311,10 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_sit = sit_counts.reset_index()
                 tabla_sit.columns = ["Situación de Entrega", "Pedidos"]
                 tabla_sit["% del Total"] = (tabla_sit["Pedidos"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
-                _df_excel(tabla_sit, "distribucion_situacion_entrega.xlsx")
+                st.dataframe(tabla_sit, use_container_width=True, hide_index=True)
+                fecha_hoy = pd.Timestamp.today().strftime("%Y%m%d")
+                _df_excel(df.copy(), f"detalle_situaciones_entrega_{fecha_hoy}.xlsx",
+                          btn_label=f"📥 Descargar detalle completo ({len(df):,} registros)")
 
                 _section("Top 10 Zonas — Entregado por Gerente")
                 zona_col_d = cols.get("zona")
