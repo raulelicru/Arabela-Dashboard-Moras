@@ -970,41 +970,98 @@ def tab_indicadores(df: pd.DataFrame):
                 tbl_dict["% del Total"] = (tbl_dict["Cuentas"] / len(df) * 100).apply(lambda v: f"{v:.1f}%")
                 _df_excel(tbl_dict, "dictaminaciones_completo.xlsx")
 
-                def _dictam_geo_chart(geo_key, title):
+                def _dictam_geo_chart(geo_key, title, max_geo=15):
                     geo_col = cols.get(geo_key)
                     if not geo_col or geo_col not in df.columns:
                         st.info(f"Sin columna de {geo_key.title()}.")
                         return
                     df2 = df[[dictam_col, geo_col]].copy()
                     df2["__d__"] = df2[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
+                    df2["__g__"] = df2[geo_col].astype(str)
                     df2 = df2[df2["__d__"].isin(top5_vals)]
-                    cross = df2.groupby([geo_col, "__d__"]).size().reset_index(name="Cuentas")
-                    cross.columns = [geo_key, "Dictaminacion", "Cuentas"]
-                    if len(cross) == 0:
+
+                    # Top geos by volume
+                    top_geos = (
+                        df2.groupby("__g__").size()
+                        .sort_values(ascending=False)
+                        .head(max_geo).index.tolist()
+                    )
+                    df2 = df2[df2["__g__"].isin(top_geos)]
+
+                    cross = df2.groupby(["__g__", "__d__"]).size().reset_index(name="Cuentas")
+                    if cross.empty:
                         st.info("Sin datos suficientes.")
                         return
-                    fig = px.bar(cross, x=geo_key, y="Cuentas", color="Dictaminacion",
-                                 barmode="stack", text="Cuentas",
-                                 labels={geo_key: geo_key.title(), "Cuentas": "Cuentas",
-                                         "Dictaminacion": "Dictaminación"},
-                                 title=title)
-                    fig.update_traces(textposition="inside", textfont_size=10)
+
+                    # Pivot: geos × dictaminaciones
+                    piv = cross.pivot_table(
+                        index="__g__", columns="__d__", values="Cuentas", fill_value=0
+                    )
+                    # Sort rows by total (highest at top)
+                    piv = piv.loc[piv.sum(axis=1).sort_values(ascending=True).index]
+
+                    z_vals = piv.values.tolist()
+                    y_labels = [f"{geo_key[:3].upper()}-{g}" for g in piv.index.tolist()]
+                    x_labels = piv.columns.tolist()
+
+                    # Annotation text
+                    annots = []
+                    for ri, row in enumerate(z_vals):
+                        for ci, val in enumerate(row):
+                            annots.append(dict(
+                                x=x_labels[ci], y=y_labels[ri],
+                                text=str(int(val)) if val > 0 else "",
+                                font=dict(size=10, color="#ffffff" if val > (piv.values.max() * 0.45) else COLORS["text2"]),
+                                showarrow=False,
+                            ))
+
+                    fig = go.Figure(go.Heatmap(
+                        z=z_vals,
+                        x=x_labels,
+                        y=y_labels,
+                        colorscale=[
+                            [0.0,  "#f0efec"],
+                            [0.15, "#cde2fb"],
+                            [0.4,  "#86b6ef"],
+                            [0.7,  "#2a78d6"],
+                            [1.0,  "#1e3a5f"],
+                        ],
+                        showscale=True,
+                        colorbar=dict(
+                            title=dict(text="Cuentas", font=dict(size=11, color=COLORS["text2"])),
+                            tickfont=dict(size=10, color=COLORS["muted"]),
+                            thickness=12, len=0.8,
+                        ),
+                        hovertemplate="<b>%{y}</b><br>%{x}<br>Cuentas: <b>%{z}</b><extra></extra>",
+                        xgap=2, ygap=2,
+                    ))
                     fig.update_layout(
                         **PLOTLY_LAYOUT,
-                        xaxis=dict(**_AXIS_DEFAULTS, title=geo_key.title()),
-                        yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
-                        legend=dict(title=dict(text="Dictaminación", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
-                                    yanchor="bottom", y=1.02, xanchor="right", x=1),
-                        height=420,
+                        title=dict(text=title, font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(
+                            tickfont=dict(size=10, color=COLORS["text2"]),
+                            side="bottom", tickangle=-30,
+                            showgrid=False, zeroline=False, showline=False,
+                        ),
+                        yaxis=dict(
+                            type="category",
+                            tickfont=dict(size=10, color=COLORS["text2"]),
+                            showgrid=False, zeroline=False, showline=False,
+                            autorange="reversed",
+                        ),
+                        annotations=annots,
+                        height=max(320, len(top_geos) * 34 + 120),
+                        margin=dict(l=90, r=80, t=60, b=90),
                     )
                     _chart_card(fig)
+
                     # Tabla pivot descargable
-                    piv = cross.pivot_table(index=geo_key, columns="Dictaminacion",
-                                            values="Cuentas", fill_value=0).reset_index()
-                    piv.columns.name = None
-                    piv["Total"] = piv.iloc[:, 1:].sum(axis=1)
-                    piv = piv.sort_values("Total", ascending=False)
-                    _df_excel(piv, f"dictam_{geo_key}.xlsx")
+                    piv_dl = piv.copy().reset_index()
+                    piv_dl.columns.name = None
+                    piv_dl = piv_dl.rename(columns={"__g__": geo_key.title()})
+                    piv_dl["Total"] = piv_dl.iloc[:, 1:].sum(axis=1)
+                    piv_dl = piv_dl.sort_values("Total", ascending=False)
+                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx")
 
                 _section("Dictaminaciones por Geografía (Top 5 resultados)")
                 c1, c2 = st.columns(2)
