@@ -1437,28 +1437,18 @@ def tab_indicadores(df: pd.DataFrame):
 
                 _camp_cat_section(df, sit_cie_col, "distribucion_entrega")
 
-                # ── Descarga por situación individual con desglose de zona ────
-                if zona_col_d and zona_col_d in df.columns:
-                    _section("Descarga por Situación de Entrega — Detalle por Zona")
-                    sit_unicas = sit_counts.index.tolist()
-                    cols_dl = st.columns(min(len(sit_unicas), 4))
-                    for i, sit_lbl in enumerate(sit_unicas):
-                        col_idx = i % 4
-                        msk_sit = df[sit_cie_col].fillna("").astype(str).str.strip() == sit_lbl
-                        tbl_sit_zona = (
-                            df[msk_sit]
-                            .groupby(zona_col_d)
-                            .size()
-                            .reset_index(name="Pedidos")
-                            .sort_values("Pedidos", ascending=False)
-                        )
-                        tbl_sit_zona = tbl_sit_zona.rename(columns={zona_col_d: "Zona"})
-                        tbl_sit_zona["Situación"] = sit_lbl
-                        tbl_sit_zona = tbl_sit_zona[["Situación", "Zona", "Pedidos"]]
-                        safe_lbl = sit_lbl[:25].replace(" ", "_").lower()
-                        with cols_dl[col_idx]:
-                            _df_excel(tbl_sit_zona, f"zona_{safe_lbl}.xlsx",
-                                      btn_label=f"📥 {sit_lbl[:30]}")
+                # ── Descarga cartera completa por situación ───────────────────
+                _section("Descargar Cartera por Situación de Entrega")
+                sit_unicas = sit_counts.index.tolist()
+                cols_dl = st.columns(min(len(sit_unicas), 4))
+                for i, sit_lbl in enumerate(sit_unicas):
+                    col_idx = i % 4
+                    msk_sit = df[sit_cie_col].fillna("").astype(str).str.strip() == sit_lbl
+                    cartera_sit = df[msk_sit].copy()
+                    safe_lbl = sit_lbl[:25].replace(" ", "_").lower()
+                    with cols_dl[col_idx]:
+                        _df_excel(cartera_sit, f"cartera_{safe_lbl}.xlsx",
+                                  btn_label=f"📥 {sit_lbl[:30]} ({int(msk_sit.sum()):,})")
 
         # ── Visitas (Col AO) ──────────────────────────────────────────────────
         with dir_sub[2]:
