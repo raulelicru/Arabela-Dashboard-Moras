@@ -602,6 +602,23 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
     <!-- ============ SECCION 4: DUPLICADOS ============ -->
     <section class="section" id="sec-duplicados">
       <div class="grid grid-4" id="dupKpiRow" style="margin-bottom:16px;"></div>
+
+      <!-- MAPA COROPLÉTICO DE MÉXICO -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+          <h3 style="margin:0;">Distribución Geográfica de Domicilios Duplicados</h3>
+          <div style="display:flex;gap:6px;">
+            <button id="mapViewEst" class="btn btn-primary" style="font-size:12px;padding:5px 13px;" onclick="setMapView('estado')">Por Estado</button>
+            <button id="mapViewDiv" class="btn btn-ghost" style="font-size:12px;padding:5px 13px;" onclick="setMapView('division')">Por División</button>
+          </div>
+        </div>
+        <div id="dupMapWrap" style="position:relative;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#eef4ff 0%,#f1f5fb 100%);">
+          <svg id="dupMapSvg" viewBox="0 0 820 500" style="width:100%;height:auto;display:block;"></svg>
+          <div id="dupMapTip" style="display:none;position:absolute;background:#fff;border-radius:10px;padding:9px 15px;box-shadow:0 6px 24px rgba(0,0,0,.14);font-size:12.5px;pointer-events:none;z-index:20;border-left:3px solid #2563eb;min-width:140px;"></div>
+        </div>
+        <div id="dupMapLegend" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;flex-wrap:wrap;"></div>
+      </div>
+
       <div class="card">
         <h3>Top domicilios con más cuentas</h3>
         <div class="dup-list" id="dupList"></div>
@@ -1494,6 +1511,254 @@ function renderDuplicatesSection(data){
   if(groupList.length > 20){
     list.innerHTML += `<p style="text-align:center;color:var(--muted);font-size:12.5px;margin-top:8px;">Mostrando 20 de ${groupList.length} grupos de duplicados.</p>`;
   }
+
+  renderDupMap(data, 'estado');
+}
+
+/* ============================================================
+   MAPA COROPLÉTICO DE DUPLICADOS — MÉXICO
+   ============================================================ */
+
+// Centroids [clave, display, lat, lon] — coordinate system for SVG projection
+const MX_STATES = [
+  ['AGUASCALIENTES','Aguascalientes',22.00,-102.30],
+  ['BAJA CALIFORNIA','Baja California',30.80,-115.50],
+  ['BAJA CALIFORNIA SUR','B.C. Sur',25.80,-111.70],
+  ['CAMPECHE','Campeche',19.00,-90.50],
+  ['CHIAPAS','Chiapas',16.80,-92.50],
+  ['CHIHUAHUA','Chihuahua',28.60,-107.00],
+  ['CIUDAD DE MEXICO','CDMX',19.40,-99.10],
+  ['CDMX','CDMX',19.40,-99.10],
+  ['COAHUILA','Coahuila',27.00,-101.70],
+  ['COLIMA','Colima',19.10,-103.70],
+  ['DURANGO','Durango',24.70,-105.20],
+  ['GUANAJUATO','Guanajuato',21.00,-100.90],
+  ['GUERRERO','Guerrero',17.50,-100.00],
+  ['HIDALGO','Hidalgo',20.60,-98.80],
+  ['JALISCO','Jalisco',20.60,-103.30],
+  ['MEXICO','Estado de México',19.36,-99.65],
+  ['ESTADO DE MEXICO','Estado de México',19.36,-99.65],
+  ['ESTADO DE MÉXICO','Estado de México',19.36,-99.65],
+  ['MICHOACAN','Michoacán',19.20,-101.80],
+  ['MICHOACÁN','Michoacán',19.20,-101.80],
+  ['MORELOS','Morelos',18.70,-99.00],
+  ['NAYARIT','Nayarit',21.80,-104.90],
+  ['NUEVO LEON','Nuevo León',25.50,-100.00],
+  ['NUEVO LEÓN','Nuevo León',25.50,-100.00],
+  ['OAXACA','Oaxaca',17.00,-96.70],
+  ['PUEBLA','Puebla',18.90,-98.20],
+  ['QUERETARO','Querétaro',20.60,-99.80],
+  ['QUERÉTARO','Querétaro',20.60,-99.80],
+  ['QUINTANA ROO','Quintana Roo',19.50,-87.50],
+  ['SAN LUIS POTOSI','San Luis Potosí',22.50,-100.50],
+  ['SAN LUIS POTOSÍ','San Luis Potosí',22.50,-100.50],
+  ['SINALOA','Sinaloa',24.80,-107.20],
+  ['SONORA','Sonora',29.50,-110.00],
+  ['TABASCO','Tabasco',18.00,-92.30],
+  ['TAMAULIPAS','Tamaulipas',24.00,-99.00],
+  ['TLAXCALA','Tlaxcala',19.50,-98.30],
+  ['VERACRUZ','Veracruz',19.20,-96.10],
+  ['YUCATAN','Yucatán',20.70,-89.00],
+  ['YUCATÁN','Yucatán',20.70,-89.00],
+  ['ZACATECAS','Zacatecas',23.20,-102.60],
+];
+
+// Simplified Mexico outline path (SVG coords for 820×500 viewBox)
+// Projection: lon -118→-86.5 = 820px, lat 33→14 = 500px
+const MX_OUTLINE = `M 28,14 L 110,16 L 168,30 L 214,44 L 260,14 L 310,14
+  L 364,30 L 400,36 L 440,54 L 476,58 L 524,100 L 545,154
+  L 548,195 L 540,242 L 536,290 L 544,340 L 556,372
+  L 618,392 L 660,386 L 700,370 L 714,308 L 716,280
+  L 744,285 L 778,302 L 790,340 L 788,372 L 774,404
+  L 760,432 L 748,458 L 726,472 L 700,480 L 674,474
+  L 654,460 L 636,470 L 614,466 L 592,458 L 570,462
+  L 548,452 L 528,438 L 508,424 L 488,432 L 460,438
+  L 432,428 L 406,420 L 374,428 L 344,424 L 318,440
+  L 294,448 L 268,444 L 244,448 L 218,458 L 194,460
+  L 168,454 L 148,464 L 126,472 L 100,470 L 76,462
+  L 52,470 L 32,460 L 18,444 L 12,422 L 14,396
+  L 24,368 L 36,344 L 50,318 L 62,290 L 66,262
+  L 60,238 L 54,208 L 60,182 L 70,158 L 82,136
+  L 88,108 L 82,82 L 72,56 L 44,36 Z
+  M 16,80 L 60,78 L 80,90 L 90,120 L 94,160 L 96,210
+  L 100,260 L 100,310 L 96,360 L 88,400 L 80,420
+  L 66,430 L 54,418 L 50,380 L 54,330 L 56,270
+  L 52,210 L 44,160 L 36,130 L 22,100 Z`;
+
+// Baja California peninsula separate path
+const MX_BAJA = `M 16,80 L 60,78 L 80,90 L 90,120 L 94,160 L 96,210
+  L 100,260 L 100,310 L 96,360 L 88,400 L 80,420
+  L 66,430 L 54,418 L 50,380 L 54,330 L 56,270
+  L 52,210 L 44,160 L 36,130 L 22,100 Z`;
+
+let _dupMapData = null;
+let _dupMapView = 'estado';
+
+function setMapView(view) {
+  _dupMapView = view;
+  document.getElementById('mapViewEst').className = view==='estado' ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('mapViewDiv').className = view==='division' ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('mapViewEst').style.cssText = 'font-size:12px;padding:5px 13px;';
+  document.getElementById('mapViewDiv').style.cssText = 'font-size:12px;padding:5px 13px;';
+  if (_dupMapData) renderDupMap(_dupMapData, view);
+}
+
+function renderDupMap(data, view) {
+  _dupMapData = data;
+  const svg = document.getElementById('dupMapSvg');
+  const legendEl = document.getElementById('dupMapLegend');
+  const tip = document.getElementById('dupMapTip');
+  if (!svg) return;
+
+  const dupRows = data.filter(r => r.DOMICILIO_DUPLICADO === 'DUPLICADO');
+
+  const normKey = s => (s||'').toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^A-Z ]/g,'').trim();
+
+  // ── Projection: lon [-118, -86.5] → x [0, 820]; lat [33, 14] → y [0, 500]
+  const W=820, H=500;
+  const LON1=-118, LON2=-86.5, LAT1=33, LAT2=14;
+  const px = lon => (lon-LON1)/(LON2-LON1)*W;
+  const py = lat => (LAT1-lat)/(LAT1-LAT2)*H;
+
+  // ── Color scale: sequential blue (light → dark)
+  const blueScale = t => {
+    const r = Math.round(210 - t*162);
+    const g = Math.round(230 - t*98);
+    const b = Math.round(252 - t*54);
+    return `rgb(${r},${g},${b})`;
+  };
+
+  let points = [];
+
+  if (view === 'estado') {
+    // Group by ESTADO
+    const byEst = {};
+    dupRows.forEach(r => {
+      const k = normKey(r.ESTADO);
+      if (k && k !== 'SIN ESTADO') byEst[k] = (byEst[k]||0)+1;
+    });
+
+    // Deduplicate state entries (keep highest lat for display)
+    const seen = {};
+    MX_STATES.forEach(([key,label,lat,lon]) => {
+      const k = normKey(key);
+      const count = byEst[k]||0;
+      if (!seen[label] || count > (seen[label].count||0)) {
+        seen[label] = { label, lat, lon, count, x: px(lon), y: py(lat) };
+      }
+    });
+    points = Object.values(seen);
+
+  } else {
+    // View by DIVISION — use approximate division centroids if available, else scatter
+    const byDiv = {};
+    dupRows.forEach(r => {
+      const k = (r.DIVISION||'SIN DIVISION').trim();
+      byDiv[k] = (byDiv[k]||0)+1;
+    });
+    // Place divisions in a horizontal arrangement inside Mexico
+    const divList = Object.entries(byDiv).sort((a,b)=>b[1]-a[1]);
+    const total = divList.length;
+    divList.forEach(([div, count], i) => {
+      const angle = (i / total) * Math.PI * 1.6 - 0.4;
+      const cx = W/2 + Math.cos(angle) * 200;
+      const cy = H/2 + Math.sin(angle) * 140;
+      points.push({ label: div, count, x: cx, y: cy });
+    });
+  }
+
+  const maxCount = Math.max(...points.map(p=>p.count), 1);
+  const hasData = points.some(p=>p.count>0);
+
+  // ── Build SVG
+  let svgContent = `
+    <!-- Mexico background -->
+    <defs>
+      <radialGradient id="bgGrad" cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stop-color="#e8f0fe" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="#dce9f8" stop-opacity="0.3"/>
+      </radialGradient>
+      <filter id="shadow">
+        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.12"/>
+      </filter>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#bgGrad)" rx="12"/>
+    <!-- Mexico mainland outline -->
+    <path d="${MX_OUTLINE}" fill="#d6e4f7" stroke="#b8cde8" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
+    <!-- Baja California -->
+    <path d="${MX_BAJA}" fill="#d6e4f7" stroke="#b8cde8" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
+    <!-- State / division bubbles -->`;
+
+  // Draw grid lines (subtle)
+  for (let lon=-115; lon<=-90; lon+=5) {
+    const x = px(lon);
+    svgContent += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#c5d8ee" stroke-width="0.4" stroke-dasharray="3,6"/>`;
+  }
+  for (let lat=16; lat<=32; lat+=4) {
+    const y = py(lat);
+    svgContent += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#c5d8ee" stroke-width="0.4" stroke-dasharray="3,6"/>`;
+  }
+
+  // Bubbles (sorted: largest first so small ones render on top)
+  const sorted = [...points].sort((a,b)=>b.count-a.count);
+  sorted.forEach(p => {
+    if (p.count === 0) return;
+    const t = Math.sqrt(p.count/maxCount);
+    const r = Math.max(10, t*52);
+    const fill = blueScale(t);
+    const textCol = t>0.55 ? '#ffffff' : '#1e3a5f';
+    svgContent += `
+    <g class="map-bubble" data-label="${p.label}" data-count="${p.count}" style="cursor:pointer;">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r.toFixed(1)}"
+        fill="${fill}" stroke="white" stroke-width="2"
+        filter="url(#shadow)" opacity="0.92"/>
+      ${r>18 ? `<text x="${p.x.toFixed(1)}" y="${(p.y+4).toFixed(1)}"
+        text-anchor="middle" font-size="${Math.min(r*0.42,13).toFixed(1)}"
+        font-weight="600" fill="${textCol}" font-family="Inter,sans-serif"
+        style="pointer-events:none;">${p.count.toLocaleString('es-MX')}</text>` : ''}
+    </g>`;
+  });
+
+  if (!hasData) {
+    svgContent += `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="15"
+      fill="#94a3b8" font-family="Inter,sans-serif">
+      Sin datos de estado disponibles — usa la vista Por División</text>`;
+  }
+
+  svg.innerHTML = svgContent;
+
+  // ── Legend
+  legendEl.innerHTML = `
+    <span style="font-size:11px;color:#94a3b8;font-family:Inter,sans-serif;">Menos duplicados</span>
+    ${[0.15,0.35,0.55,0.75,1.0].map(t=>{
+      const sz = (8+t*22).toFixed(0);
+      return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${blueScale(t)};border:1.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.12);flex-shrink:0;"></div>`;
+    }).join('')}
+    <span style="font-size:11px;color:#94a3b8;font-family:Inter,sans-serif;">Más duplicados</span>`;
+
+  // ── Tooltip
+  const wrap = document.getElementById('dupMapWrap');
+  svg.querySelectorAll('.map-bubble').forEach(el => {
+    el.addEventListener('mouseenter', e => {
+      const label = el.dataset.label;
+      const count = Number(el.dataset.count);
+      tip.innerHTML = `<div style="font-weight:700;color:#1e3a5f;margin-bottom:3px;">${label}</div>
+        <div style="color:#64748b;">${count.toLocaleString('es-MX')} cuentas duplicadas</div>`;
+      tip.style.display = 'block';
+    });
+    el.addEventListener('mousemove', e => {
+      const rect = wrap.getBoundingClientRect();
+      let left = e.clientX - rect.left + 14;
+      let top = e.clientY - rect.top - 50;
+      if (left + 170 > rect.width) left -= 180;
+      if (top < 0) top = 8;
+      tip.style.left = left+'px';
+      tip.style.top = top+'px';
+    });
+    el.addEventListener('mouseleave', () => { tip.style.display='none'; });
+  });
 }
 
 /* ============================================================
