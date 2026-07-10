@@ -7,6 +7,8 @@ from supabase import create_client, Client
 def get_supabase() -> Client:
     """Crea (o reutiliza) el cliente Supabase en session_state."""
     if "supabase" not in st.session_state:
+        url = None
+        key = None
         try:
             url = st.secrets["SUPABASE_URL"]
             key = st.secrets["SUPABASE_ANON_KEY"]
@@ -18,12 +20,20 @@ def get_supabase() -> Client:
                 url = os.environ["SUPABASE_URL"]
                 key = os.environ["SUPABASE_ANON_KEY"]
             except KeyError:
-                st.error(
-                    "⚠️ Configura **SUPABASE_URL** y **SUPABASE_ANON_KEY** "
-                    "en `.env` (local) o en *Secrets* de Streamlit Cloud."
-                )
-                st.stop()
-        st.session_state.supabase = create_client(url, key)
+                pass
+
+        if not url or not key:
+            st.error(
+                "⚠️ Configura **SUPABASE_URL** y **SUPABASE_ANON_KEY** "
+                "en `.env` (local) o en *Secrets* de Streamlit Cloud."
+            )
+            st.stop()
+
+        try:
+            st.session_state.supabase = create_client(url, key)
+        except Exception as e:
+            st.error(f"⚠️ No se pudo conectar con Supabase: {e}")
+            st.stop()
 
     sb: Client = st.session_state.supabase
 
