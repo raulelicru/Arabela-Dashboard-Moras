@@ -427,8 +427,8 @@ def _grp_camp(df: pd.DataFrame, col_key: str, cols: dict, last4: list) -> pd.Dat
 
 
 def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel",
-              df_base: pd.DataFrame = None):
-    """Muestra dataframe + botón de descarga Excel. Si se pasa df_base, agrega botón de base completa."""
+              df_base: pd.DataFrame = None, base_label: str = None, base_filename: str = None):
+    """Muestra dataframe + botón de descarga Excel. Si se pasa df_base, agrega botón de base/detalle."""
     import io
     st.dataframe(df_show, use_container_width=True, hide_index=True)
     buf = io.BytesIO()
@@ -447,11 +447,13 @@ def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Desca
         buf2 = io.BytesIO()
         df_base.to_excel(buf2, index=False, engine="openpyxl")
         buf2.seek(0)
+        _base_label = base_label or f"📋 Base completa ({len(df_base):,} reg.)"
+        _base_file  = base_filename or ("base_" + filename)
         with c2:
             st.download_button(
-                label=f"📋 Base completa ({len(df_base):,} reg.)",
+                label=_base_label,
                 data=buf2,
-                file_name="base_" + filename,
+                file_name=_base_file,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key=f"dl_base_{filename}",
             )
@@ -478,6 +480,10 @@ def tab_indicadores(df: pd.DataFrame):
     df = df.copy()
     df["__saldo__"] = _to_num(df[cols["saldo"]]) if cols.get("saldo") else 0.0
     df["__pago__"] = _to_num(df[cols["pago"]]) if cols.get("pago") else 0.0
+
+    def _pagaron(d: pd.DataFrame) -> pd.DataFrame:
+        """Filas con pago > 0 (se recalcula sobre el df pasado para respetar filtros activos)."""
+        return d[d["__pago__"] > 0].copy()
 
     # ── Filtro global de Campaña ──────────────────────────────────────────────
     camp_col = cols.get("campania")
@@ -584,7 +590,11 @@ def tab_indicadores(df: pd.DataFrame):
                         tbl_geo["Pagado"]   = tbl_geo["Pagado"].apply(fmt_currency)
                         tbl_geo["PctRec"]   = tbl_geo["PctRec"].apply(lambda v: f"{v:.1f}%")
                         tbl_geo.columns = [key.title(), "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                        _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname, df_base=df)
+                        _pag = _pagaron(df)
+                        _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname,
+                                  df_base=_pag,
+                                  base_label=f"✅ Cuentas que pagaron ({len(_pag):,} reg.)",
+                                  base_filename=f"pagaron_{fname}")
 
             _section("Tendencia por Campaña")
             g = _grp(df, "campania", cols)
@@ -620,7 +630,11 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
                 tabla_camp["PctRec"]   = tabla_camp["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_camp.columns = ["Campaña", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx", df_base=df)
+                _pag_camp = _pagaron(df)
+                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx",
+                          df_base=_pag_camp,
+                          base_label=f"✅ Cuentas que pagaron ({len(_pag_camp):,} reg.)",
+                          base_filename="pagaron_por_campana.xlsx")
 
             if last4 and camp_col_real:
                 _section("📅 Comparativo — Últimas 4 Campañas")
@@ -638,7 +652,11 @@ def tab_indicadores(df: pd.DataFrame):
                                  "Saldo Asignado": fmt_currency(sal), "Recuperado": fmt_currency(pag),
                                  "% Recuperación": f"{pct:.1f}%", "Ctas. Rec.": f"{rec:,}",
                                  "Contacto": f"{cont:,}"})
-                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx", df_base=df)
+                _pag4 = _pagaron(df)
+                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx",
+                          df_base=_pag4,
+                          base_label=f"✅ Cuentas que pagaron ({len(_pag4):,} reg.)",
+                          base_filename="pagaron_ultimas4_campanas.xlsx")
 
                 # Gráfica comparativa
                 g4 = _grp(df[df[camp_col_real].astype(str).isin(last4)], "campania", cols)
@@ -738,7 +756,11 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_seg["Pagado"]   = tabla_seg["Pagado"].apply(fmt_currency)
                 tabla_seg["PctRec"]   = tabla_seg["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_seg.columns = ["Segmento", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx", df_base=df)
+                _pag_seg = _pagaron(df)
+                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx",
+                          df_base=_pag_seg,
+                          base_label=f"✅ Cuentas que pagaron ({len(_pag_seg):,} reg.)",
+                          base_filename="pagaron_por_segmento.xlsx")
 
                 _section("Recuperación por Zona — todas las zonas")
                 g_zona = _grp(df, "zona", cols)
@@ -749,7 +771,11 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
                     tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _df_excel(tabla, "recuperacion_por_zona.xlsx", df_base=df)
+                    _pag_zona = _pagaron(df)
+                    _df_excel(tabla, "recuperacion_por_zona.xlsx",
+                              df_base=_pag_zona,
+                              base_label=f"✅ Cuentas que pagaron ({len(_pag_zona):,} reg.)",
+                              base_filename="pagaron_por_zona.xlsx")
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Recuperación por Segmento × Últimas 4 Campañas")
@@ -796,7 +822,11 @@ def tab_indicadores(df: pd.DataFrame):
                         for c in last4:
                             if c in tbl_rc.columns:
                                 tbl_rc[c] = tbl_rc[c].apply(lambda v: f"{v:.1f}%")
-                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx", df_base=df)
+                        _pag_sc = _pagaron(df)
+                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx",
+                                  df_base=_pag_sc,
+                                  base_label=f"✅ Cuentas que pagaron ({len(_pag_sc):,} reg.)",
+                                  base_filename="pagaron_segmento_campana.xlsx")
 
         # ── Gestión Damas ─────────────────────────────────────────────────────
         with sub[2]:
