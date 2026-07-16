@@ -426,20 +426,43 @@ def _grp_camp(df: pd.DataFrame, col_key: str, cols: dict, last4: list) -> pd.Dat
     return g
 
 
-def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel"):
-    """Muestra dataframe + botón de descarga Excel."""
+def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel",
+              df_base: pd.DataFrame = None):
+    """Muestra dataframe + botón de descarga Excel. Si se pasa df_base, agrega botón de base completa."""
     import io
     st.dataframe(df_show, use_container_width=True, hide_index=True)
     buf = io.BytesIO()
     df_show.to_excel(buf, index=False, engine="openpyxl")
     buf.seek(0)
-    st.download_button(
-        label=btn_label,
-        data=buf,
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key=f"dl_{filename}",
-    )
+    if df_base is not None:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.download_button(
+                label=btn_label,
+                data=buf,
+                file_name=filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"dl_{filename}",
+            )
+        buf2 = io.BytesIO()
+        df_base.to_excel(buf2, index=False, engine="openpyxl")
+        buf2.seek(0)
+        with c2:
+            st.download_button(
+                label=f"📋 Base completa ({len(df_base):,} reg.)",
+                data=buf2,
+                file_name="base_" + filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"dl_base_{filename}",
+            )
+    else:
+        st.download_button(
+            label=btn_label,
+            data=buf,
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"dl_{filename}",
+        )
 
 
 def tab_indicadores(df: pd.DataFrame):
@@ -561,7 +584,7 @@ def tab_indicadores(df: pd.DataFrame):
                         tbl_geo["Pagado"]   = tbl_geo["Pagado"].apply(fmt_currency)
                         tbl_geo["PctRec"]   = tbl_geo["PctRec"].apply(lambda v: f"{v:.1f}%")
                         tbl_geo.columns = [key.title(), "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                        _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname)
+                        _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname, df_base=df)
 
             _section("Tendencia por Campaña")
             g = _grp(df, "campania", cols)
@@ -597,7 +620,7 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
                 tabla_camp["PctRec"]   = tabla_camp["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_camp.columns = ["Campaña", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx")
+                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx", df_base=df)
 
             if last4 and camp_col_real:
                 _section("📅 Comparativo — Últimas 4 Campañas")
@@ -615,7 +638,7 @@ def tab_indicadores(df: pd.DataFrame):
                                  "Saldo Asignado": fmt_currency(sal), "Recuperado": fmt_currency(pag),
                                  "% Recuperación": f"{pct:.1f}%", "Ctas. Rec.": f"{rec:,}",
                                  "Contacto": f"{cont:,}"})
-                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx")
+                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx", df_base=df)
 
                 # Gráfica comparativa
                 g4 = _grp(df[df[camp_col_real].astype(str).isin(last4)], "campania", cols)
@@ -715,7 +738,7 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_seg["Pagado"]   = tabla_seg["Pagado"].apply(fmt_currency)
                 tabla_seg["PctRec"]   = tabla_seg["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_seg.columns = ["Segmento", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx")
+                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx", df_base=df)
 
                 _section("Recuperación por Zona — todas las zonas")
                 g_zona = _grp(df, "zona", cols)
@@ -726,7 +749,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
                     tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _df_excel(tabla, "recuperacion_por_zona.xlsx")
+                    _df_excel(tabla, "recuperacion_por_zona.xlsx", df_base=df)
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Recuperación por Segmento × Últimas 4 Campañas")
@@ -773,7 +796,7 @@ def tab_indicadores(df: pd.DataFrame):
                         for c in last4:
                             if c in tbl_rc.columns:
                                 tbl_rc[c] = tbl_rc[c].apply(lambda v: f"{v:.1f}%")
-                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx")
+                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx", df_base=df)
 
         # ── Gestión Damas ─────────────────────────────────────────────────────
         with sub[2]:
@@ -869,7 +892,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla = g_c_zona[["zona", "Total", "Contacto", "NoContacto", "PctContacto"]].copy()
                     tabla["PctContacto"] = tabla["PctContacto"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Total", "Contacto", "No Contacto", "% Contacto"]
-                    _df_excel(tabla, "contacto_por_zona.xlsx")
+                    _df_excel(tabla, "contacto_por_zona.xlsx", df_base=df)
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Contactación × Últimas 4 Campañas")
@@ -884,7 +907,7 @@ def tab_indicadores(df: pd.DataFrame):
                         rows_ct.append({"Campaña": c, "Total": f"{n:,}", "Contacto": f"{ct:,}",
                                         "No Contacto": f"{nct:,}", "% Contacto": f"{pct:.1f}%"})
                     tbl_ct = pd.DataFrame(rows_ct)
-                    _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx")
+                    _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx", df_base=df)
 
                     fig_ct = go.Figure()
                     for i, c in enumerate(reversed(last4)):
@@ -977,7 +1000,7 @@ def tab_indicadores(df: pd.DataFrame):
                 tbl_dict = all_counts.reset_index()
                 tbl_dict.columns = ["Dictaminación", "Cuentas"]
                 tbl_dict["% del Total"] = (tbl_dict["Cuentas"] / len(df) * 100).apply(lambda v: f"{v:.1f}%")
-                _df_excel(tbl_dict, "dictaminaciones_completo.xlsx")
+                _df_excel(tbl_dict, "dictaminaciones_completo.xlsx", df_base=df)
 
                 def _dictam_geo_chart(geo_key, title, max_geo=15):
                     geo_col = cols.get(geo_key)
@@ -1069,7 +1092,7 @@ def tab_indicadores(df: pd.DataFrame):
                     piv_dl = piv_dl.rename(columns={"__g__": geo_key.title()})
                     piv_dl["Total"] = piv_dl.iloc[:, 1:].sum(axis=1)
                     piv_dl = piv_dl.sort_values("Total", ascending=False)
-                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx")
+                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx", df_base=df)
 
                 _section("Dictaminaciones por Geografía (Top 5 resultados)")
                 c1, c2 = st.columns(2)
@@ -1122,7 +1145,7 @@ def tab_indicadores(df: pd.DataFrame):
                         row[f"#{j+1} Dictaminación"] = k
                         row[f"#{j+1} Cuentas"] = f"{v:,}"
                     rows_d.append(row)
-                _df_excel(pd.DataFrame(rows_d), "dictaminacion_ultimas4_campanas.xlsx")
+                _df_excel(pd.DataFrame(rows_d), "dictaminacion_ultimas4_campanas.xlsx", df_base=df)
 
         # ── Alertas ───────────────────────────────────────────────────────────
         with sub[4]:
@@ -1147,7 +1170,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
                     tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = [label, "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _df_excel(tabla, f"alertas_{col_key}.xlsx")
+                    _df_excel(tabla, f"alertas_{col_key}.xlsx", df_base=df)
             if not any_alert:
                 st.success(f"✅ Todas las unidades superan el {umbral}% de recuperación.")
 
@@ -1231,7 +1254,7 @@ def tab_indicadores(df: pd.DataFrame):
             pivot["Total"] = pivot.iloc[:, 1:].sum(axis=1)
             pivot = pivot.sort_values("Total", ascending=False)
             safe = chart_title[:30].replace(" ", "_").lower()
-            _df_excel(pivot, f"{geo_key}_{safe}.xlsx")
+            _df_excel(pivot, f"{geo_key}_{safe}.xlsx", df_base=df_in)
 
         def _camp_cat_section(df_in, cat_col, file_prefix, top_n=3):
             """Tabla + gráfica comparativa de últimas 4 campañas para col. categórica."""
@@ -1252,7 +1275,7 @@ def tab_indicadores(df: pd.DataFrame):
                     cnt = sc.get(cat, 0)
                     row[cat] = f"{cnt:,}  ({cnt/n*100:.1f}%)" if n > 0 else "0"
                 rows.append(row)
-            _df_excel(pd.DataFrame(rows), f"{file_prefix}_ultimas4_campanas.xlsx")
+            _df_excel(pd.DataFrame(rows), f"{file_prefix}_ultimas4_campanas.xlsx", df_base=df_in)
 
             df4 = df_in[df_in[camp_col_real].astype(str).isin(last4)].copy()
             df4["__cat__"] = df4[cat_col].fillna("Sin Info").astype(str).str.strip()
@@ -1365,7 +1388,7 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_z = sit_cnt_z.reset_index()
                 tabla_z.columns = ["Situación", "Cuentas"]
                 tabla_z["% del Total"] = (tabla_z["Cuentas"] / total_dom_z * 100).apply(lambda v: f"{v:.1f}%")
-                _df_excel(tabla_z, "situacion_domicilio.xlsx")
+                _df_excel(tabla_z, "situacion_domicilio.xlsx", df_base=df)
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Situación de Domicilio × Últimas 4 Campañas")
@@ -1380,7 +1403,7 @@ def tab_indicadores(df: pd.DataFrame):
                             cnt = sc.get(sit, 0)
                             row[sit] = f"{cnt:,}  ({cnt/n*100:.1f}%)" if n > 0 else "0"
                         rows_z.append(row)
-                    _df_excel(pd.DataFrame(rows_z), "direcciones_ultimas4_campanas.xlsx")
+                    _df_excel(pd.DataFrame(rows_z), "direcciones_ultimas4_campanas.xlsx", df_base=df)
 
                     cross_cz = df[df[camp_col_real].astype(str).isin(last4)].copy()
                     cross_cz = cross_cz[cross_cz[situacion_col].isin(top3_z2)]
@@ -1535,7 +1558,7 @@ def tab_indicadores(df: pd.DataFrame):
                             0,
                         ).round(1)
                         todas_zonas["% Entrega Gerente"] = todas_zonas["% Entrega Gerente"].apply(lambda v: f"{v:.1f}%")
-                        _df_excel(todas_zonas, "todas_zonas_gerente.xlsx")
+                        _df_excel(todas_zonas, "todas_zonas_gerente.xlsx", df_base=df)
                     else:
                         st.info("No se encontraron registros con 'ENTREGADO POR GERENTE' en la columna AB.")
                 else:
@@ -1581,7 +1604,7 @@ def tab_indicadores(df: pd.DataFrame):
                         ).reset_index()
                         tr_pivot.columns.name = None
                         tr_pivot["Total"] = tr_pivot.iloc[:, 1:].sum(axis=1)
-                        _df_excel(tr_pivot, "tendencia_distribucion_campana.xlsx")
+                        _df_excel(tr_pivot, "tendencia_distribucion_campana.xlsx", df_base=df)
 
                 _camp_cat_section(df, sit_cie_col, "distribucion_entrega")
 
@@ -1660,7 +1683,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla_vis.columns = ["Resultado", "Visitas"]
                     tabla_vis["% del Total Visitas"] = (tabla_vis["Visitas"] / total_vis * 100).apply(lambda v: f"{v:.1f}%")
                     tabla_vis["% del Total Registros"] = (tabla_vis["Visitas"] / total_dom_v * 100).apply(lambda v: f"{v:.1f}%")
-                    _df_excel(tabla_vis, "visitas_resultado.xlsx")
+                    _df_excel(tabla_vis, "visitas_resultado.xlsx", df_base=df)
 
                     _section("Resultados de Visita por Geografía (Top 5)")
                     c1, c2 = st.columns(2)
@@ -1732,7 +1755,7 @@ def tab_indicadores(df: pd.DataFrame):
                             tbl_noloc["Pct"] = tbl_noloc["Pct"].apply(lambda v: f"{v:.1f}%")
                             tbl_noloc.columns = ["Zona", "Domicilio No Localizado", "Total Asignadas", "% No Localizado"]
                             _df_excel(tbl_noloc.sort_values("Domicilio No Localizado", ascending=False),
-                                      "zonas_domicilio_no_localizado.xlsx")
+                                      "zonas_domicilio_no_localizado.xlsx", df_base=df)
                         else:
                             st.info("No se encontraron registros de 'Domicilio No Localizado' en Col. AO.")
                     else:
