@@ -622,7 +622,10 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
       </div>
 
       <div class="card">
-        <h3>Top domicilios con más cuentas</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h3 style="margin:0;">Top domicilios con más cuentas</h3>
+          <button onclick="downloadDupDomicilios()" class="btn btn-ghost" style="font-size:12.5px;padding:6px 14px;">📥 Descargar Excel</button>
+        </div>
         <div class="dup-list" id="dupList"></div>
       </div>
     </section>
@@ -1482,6 +1485,7 @@ function renderDuplicatesSection(data){
     groups[key].n = groups[key].rows.length;
   });
   const groupList = Object.entries(groups).sort((a,b)=>b[1].n - a[1].n);
+  _dupGroupList = groupList;
 
   const totalDupCuentas = dupRows.length;
   const totalGrupos = groupList.length;
@@ -1515,6 +1519,46 @@ function renderDuplicatesSection(data){
   }
 
   renderDupMap(data, 'estado');
+}
+
+function downloadDupDomicilios(){
+  if(!_dupGroupList.length){ alert('Sin datos de duplicados para exportar.'); return; }
+  // Sheet 1: resumen — one row per address group
+  const hdr = ['Cuentas','Dirección','Colonia','Población','Estado','División','No. Dama (cuentas)'];
+  const resRows = [hdr];
+  // Sheet 2: detalle — one row per account
+  const hdr2 = ['Dirección','Cuentas en Domicilio','No. Dama','Nombre','División','Zona','Colonia','Población','Estado'];
+  const detRows = [hdr2];
+  _dupGroupList.forEach(([addr, g])=>{
+    const s = g.rows[0];
+    resRows.push([
+      g.n,
+      addr || 'SIN DIRECCIÓN',
+      s.COLONIA || '',
+      s.POBLACION || '',
+      s.ESTADO || '',
+      s.DIVISION || '',
+      g.rows.map(r=>r.NO_DAMA).join(', ')
+    ]);
+    g.rows.forEach(r=>{
+      detRows.push([
+        addr || 'SIN DIRECCIÓN',
+        g.n,
+        r.NO_DAMA || '',
+        r.NOMBRE || '',
+        r.DIVISION || '',
+        r.ZONA || '',
+        r.COLONIA || '',
+        r.POBLACION || '',
+        r.ESTADO || ''
+      ]);
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resRows), 'Resumen Domicilios');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detRows), 'Detalle Cuentas');
+  const fecha = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.writeFile(wb, `domicilios_duplicados_${fecha}.xlsx`);
 }
 
 /* ============================================================
@@ -1567,6 +1611,7 @@ const MX_STATES = [
 
 let _dupMapData = null;
 let _dupMapView = 'estado';
+let _dupGroupList = [];  // all address groups, sorted by count desc
 
 // Aliases: normalize GeoJSON state names → our data's normalized keys
 const _STATE_ALIAS = {
