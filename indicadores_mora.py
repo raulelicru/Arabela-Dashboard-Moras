@@ -1418,7 +1418,9 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_z = sit_cnt_z.reset_index()
                 tabla_z.columns = ["Situación", "Cuentas"]
                 tabla_z["% del Total"] = (tabla_z["Cuentas"] / total_dom_z * 100).apply(lambda v: f"{v:.1f}%")
-                _df_excel(tabla_z, "situacion_domicilio.xlsx", df_base=df)
+                _df_excel(tabla_z, "situacion_domicilio.xlsx", df_base=df,
+                          base_label=f"📋 Cartera completa ({len(df):,} reg.)",
+                          base_filename="cartera_domicilios.xlsx")
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Situación de Domicilio × Últimas 4 Campañas")
@@ -1433,7 +1435,9 @@ def tab_indicadores(df: pd.DataFrame):
                             cnt = sc.get(sit, 0)
                             row[sit] = f"{cnt:,}  ({cnt/n*100:.1f}%)" if n > 0 else "0"
                         rows_z.append(row)
-                    _df_excel(pd.DataFrame(rows_z), "direcciones_ultimas4_campanas.xlsx", df_base=df)
+                    _df_excel(pd.DataFrame(rows_z), "direcciones_ultimas4_campanas.xlsx", df_base=df,
+                              base_label=f"📋 Cartera completa ({len(df):,} reg.)",
+                              base_filename="cartera_domicilios_ultimas4.xlsx")
 
                     cross_cz = df[df[camp_col_real].astype(str).isin(last4)].copy()
                     cross_cz = cross_cz[cross_cz[situacion_col].isin(top3_z2)]
@@ -1588,7 +1592,11 @@ def tab_indicadores(df: pd.DataFrame):
                             0,
                         ).round(1)
                         todas_zonas["% Entrega Gerente"] = todas_zonas["% Entrega Gerente"].apply(lambda v: f"{v:.1f}%")
-                        _df_excel(todas_zonas, "todas_zonas_gerente.xlsx", df_base=df)
+                        _ger_base = df[_gerente_mask].copy()
+                        _df_excel(todas_zonas, "todas_zonas_gerente.xlsx",
+                                  df_base=_ger_base,
+                                  base_label=f"🚚 Entregadas por Gerente ({len(_ger_base):,} reg.)",
+                                  base_filename="cartera_entregada_gerente.xlsx")
                     else:
                         st.info("No se encontraron registros con 'ENTREGADO POR GERENTE' en la columna AB.")
                 else:
@@ -1634,7 +1642,9 @@ def tab_indicadores(df: pd.DataFrame):
                         ).reset_index()
                         tr_pivot.columns.name = None
                         tr_pivot["Total"] = tr_pivot.iloc[:, 1:].sum(axis=1)
-                        _df_excel(tr_pivot, "tendencia_distribucion_campana.xlsx", df_base=df)
+                        _df_excel(tr_pivot, "tendencia_distribucion_campana.xlsx", df_base=df,
+                                  base_label=f"📋 Cartera completa ({len(df):,} reg.)",
+                                  base_filename="cartera_distribucion_campana.xlsx")
 
                 _camp_cat_section(df, sit_cie_col, "distribucion_entrega")
 
@@ -1713,7 +1723,11 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla_vis.columns = ["Resultado", "Visitas"]
                     tabla_vis["% del Total Visitas"] = (tabla_vis["Visitas"] / total_vis * 100).apply(lambda v: f"{v:.1f}%")
                     tabla_vis["% del Total Registros"] = (tabla_vis["Visitas"] / total_dom_v * 100).apply(lambda v: f"{v:.1f}%")
-                    _df_excel(tabla_vis, "visitas_resultado.xlsx", df_base=df)
+                    _vis_base = df[visited_msk].copy()
+                    _df_excel(tabla_vis, "visitas_resultado.xlsx",
+                              df_base=_vis_base,
+                              base_label=f"👣 Cuentas con visita ({len(_vis_base):,} reg.)",
+                              base_filename="cartera_con_visita.xlsx")
 
                     _section("Resultados de Visita por Geografía (Top 5)")
                     c1, c2 = st.columns(2)
@@ -1784,8 +1798,12 @@ def tab_indicadores(df: pd.DataFrame):
                             tbl_noloc = g_noloc[["Zona_str", "Sin Localizar", "Total Asignadas", "Pct"]].copy()
                             tbl_noloc["Pct"] = tbl_noloc["Pct"].apply(lambda v: f"{v:.1f}%")
                             tbl_noloc.columns = ["Zona", "Domicilio No Localizado", "Total Asignadas", "% No Localizado"]
+                            _noloc_base = df[_no_loc_mask].copy()
                             _df_excel(tbl_noloc.sort_values("Domicilio No Localizado", ascending=False),
-                                      "zonas_domicilio_no_localizado.xlsx", df_base=df)
+                                      "zonas_domicilio_no_localizado.xlsx",
+                                      df_base=_noloc_base,
+                                      base_label=f"❌ Cuentas no localizadas ({len(_noloc_base):,} reg.)",
+                                      base_filename="cartera_no_localizada.xlsx")
                         else:
                             st.info("No se encontraron registros de 'Domicilio No Localizado' en Col. AO.")
                     else:
