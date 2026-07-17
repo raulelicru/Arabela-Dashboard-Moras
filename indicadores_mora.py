@@ -434,7 +434,22 @@ def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Desca
     buf = io.BytesIO()
     df_show.to_excel(buf, index=False, engine="openpyxl")
     buf.seek(0)
+
+    buf2 = None
     if df_base is not None:
+        try:
+            _df_safe = df_base.copy()
+            for col in _df_safe.select_dtypes(include=["datetimetz"]).columns:
+                _df_safe[col] = _df_safe[col].dt.tz_localize(None)
+            buf2 = io.BytesIO()
+            _df_safe.to_excel(buf2, index=False, engine="openpyxl")
+            buf2.seek(0)
+        except Exception:
+            buf2 = None
+
+    if buf2 is not None:
+        _base_label = base_label or f"📋 Base completa ({len(df_base):,} reg.)"
+        _base_file  = base_filename or ("base_" + filename)
         c1, c2 = st.columns(2)
         with c1:
             st.download_button(
@@ -444,11 +459,6 @@ def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Desca
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key=f"dl_{filename}",
             )
-        buf2 = io.BytesIO()
-        df_base.to_excel(buf2, index=False, engine="openpyxl")
-        buf2.seek(0)
-        _base_label = base_label or f"📋 Base completa ({len(df_base):,} reg.)"
-        _base_file  = base_filename or ("base_" + filename)
         with c2:
             st.download_button(
                 label=_base_label,
