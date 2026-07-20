@@ -24,12 +24,8 @@ sb = get_supabase()
 require_auth(sb)
 
 # ── Header ───────────────────────────────────────────────────────────────────
-logo_path = pathlib.Path(__file__).parent / "logo_crz.png"
-h1, h2, h3 = st.columns([1, 9, 2])
-with h1:
-    st.image(str(logo_path), width=64)
+h2, h3 = st.columns([9, 2])
 with h2:
-    st.caption("CONSULTORES CRZ")
     st.header("Dashboard Cobranza Mora Arabela")
 with h3:
     role = st.session_state.get("role", "user")
