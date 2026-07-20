@@ -677,13 +677,11 @@ def tab_indicadores(df: pd.DataFrame):
                         name="Monto Asignado", x=_camp_labels, y=_asignados,
                         marker_color=CAT_COLORS[0],
                         text=[fmt_currency(v) for v in _asignados], textposition="outside",
-                        yaxis="y1",
                     ))
                     fig6.add_trace(go.Bar(
                         name="Monto Recuperado", x=_camp_labels, y=_recuperados,
                         marker_color=COLORS["success"],
                         text=[fmt_currency(v) for v in _recuperados], textposition="outside",
-                        yaxis="y1",
                     ))
                     fig6.add_trace(go.Scatter(
                         name="% Contacto", x=_camp_labels, y=_pct_contactos,
@@ -695,8 +693,7 @@ def tab_indicadores(df: pd.DataFrame):
                         textfont=dict(size=11, color=COLORS["warning"]),
                         yaxis="y2",
                     ))
-                    fig6.update_layout(
-                        **PLOTLY_LAYOUT,
+                    fig6.update_layout(_layout(
                         barmode="group",
                         title=dict(text="Monto Asignado vs Recuperado y % Contacto — Últimas 4 Campañas",
                                    font=dict(size=14, color=COLORS["primary"], weight=600)),
@@ -708,7 +705,7 @@ def tab_indicadores(df: pd.DataFrame):
                                     titlefont=dict(color=COLORS["warning"]),
                                     tickfont=dict(color=COLORS["warning"])),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    )
+                    ))
                     _chart_card(fig6)
                 _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx", show_table=False)
 
