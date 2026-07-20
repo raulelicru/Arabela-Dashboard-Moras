@@ -427,10 +427,12 @@ def _grp_camp(df: pd.DataFrame, col_key: str, cols: dict, last4: list) -> pd.Dat
 
 
 def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel",
-              df_base: pd.DataFrame = None, base_label: str = None, base_filename: str = None):
+              df_base: pd.DataFrame = None, base_label: str = None, base_filename: str = None,
+              show_table: bool = True):
     """Muestra dataframe + botón de descarga Excel. Si se pasa df_base, agrega botón de base/detalle."""
     import io
-    st.dataframe(df_show, use_container_width=True, hide_index=True)
+    if show_table:
+        st.dataframe(df_show, use_container_width=True, hide_index=True)
     buf = io.BytesIO()
     df_show.to_excel(buf, index=False, engine="openpyxl")
     buf.seek(0)
@@ -567,7 +569,7 @@ def tab_indicadores(df: pd.DataFrame):
 
         # ── Ejecutivo ─────────────────────────────────────────────────────────
         with sub[0]:
-            _banner("📋", "Resumen Ejecutivo", "Visión general de la cartera y su recuperación")
+            _banner("📋", "Recuperación", "Visión general de la cartera y su recuperación")
 
             r1 = st.columns(4)
             r1[0].metric("Cuentas Asignadas", f"{total_cuentas:,}")
@@ -600,11 +602,15 @@ def tab_indicadores(df: pd.DataFrame):
                         tbl_geo["Pagado"]   = tbl_geo["Pagado"].apply(fmt_currency)
                         tbl_geo["PctRec"]   = tbl_geo["PctRec"].apply(lambda v: f"{v:.1f}%")
                         tbl_geo.columns = [key.title(), "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                        _pag = _pagaron(df)
-                        _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname,
-                                  df_base=_pag,
-                                  base_label=f"✅ Cuentas que pagaron ({len(_pag):,} reg.)",
-                                  base_filename=f"pagaron_{fname}")
+                        if key == "region":
+                            _pag = _pagaron(df)
+                            _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname,
+                                      df_base=_pag,
+                                      base_label=f"✅ Cuentas que pagaron ({len(_pag):,} reg.)",
+                                      base_filename=f"pagaron_{fname}")
+                        else:
+                            _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname,
+                                      show_table=False)
 
             _section("Tendencia por Campaña")
             g = _grp(df, "campania", cols)
@@ -640,16 +646,13 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
                 tabla_camp["PctRec"]   = tabla_camp["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_camp.columns = ["Campaña", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _pag_camp = _pagaron(df)
-                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx",
-                          df_base=_pag_camp,
-                          base_label=f"✅ Cuentas que pagaron ({len(_pag_camp):,} reg.)",
-                          base_filename="pagaron_por_campana.xlsx")
+                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx", show_table=False)
 
             if last4 and camp_col_real:
                 _section("📅 Comparativo — Últimas 4 Campañas")
-                # Tabla KPI por campaña
+                # Datos por campaña para gráfica y descarga
                 rows = []
+                _camp_labels, _asignados, _recuperados, _pct_contactos = [], [], [], []
                 for c in reversed(last4):
                     dfc = df[df[camp_col_real].astype(str) == c]
                     n   = len(dfc)
@@ -658,31 +661,56 @@ def tab_indicadores(df: pd.DataFrame):
                     pct = pag / sal * 100 if sal > 0 else 0
                     rec = int((dfc["__pago__"] > 0).sum())
                     cont = int(dfc[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").sum()) if contacto_col else 0
+                    pct_cont = cont / n * 100 if n > 0 else 0
                     rows.append({"Campaña": c, "Cuentas": f"{n:,}",
                                  "Saldo Asignado": fmt_currency(sal), "Recuperado": fmt_currency(pag),
                                  "% Recuperación": f"{pct:.1f}%", "Ctas. Rec.": f"{rec:,}",
-                                 "Contacto": f"{cont:,}"})
-                _pag4 = _pagaron(df)
-                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx",
-                          df_base=_pag4,
-                          base_label=f"✅ Cuentas que pagaron ({len(_pag4):,} reg.)",
-                          base_filename="pagaron_ultimas4_campanas.xlsx")
+                                 "Contacto": f"{cont:,}", "% Contacto": f"{pct_cont:.1f}%"})
+                    _camp_labels.append(str(c))
+                    _asignados.append(sal)
+                    _recuperados.append(pag)
+                    _pct_contactos.append(pct_cont)
 
-                # Gráfica comparativa
-                g4 = _grp(df[df[camp_col_real].astype(str).isin(last4)], "campania", cols)
-                if g4 is not None:
-                    g4 = g4.sort_values("campania", key=lambda c: c.astype(str))
-                    fig = go.Figure(go.Bar(
-                        x=g4["campania"].astype(str), y=g4["PctRec"],
-                        marker_color=[CAMP_COLORS[i % 4] for i in range(len(g4))],
-                        text=[f"{v:.1f}%" for v in g4["PctRec"]], textposition="outside",
+                if _camp_labels:
+                    fig6 = go.Figure()
+                    fig6.add_trace(go.Bar(
+                        name="Monto Asignado", x=_camp_labels, y=_asignados,
+                        marker_color=CAT_COLORS[0],
+                        text=[fmt_currency(v) for v in _asignados], textposition="outside",
+                        yaxis="y1",
                     ))
-                    fig.update_layout(
-                        **PLOTLY_LAYOUT, title=dict(text="% Recuperación — Últimas 4 Campañas", font=dict(size=14, color=COLORS["primary"], weight=600)),
-                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
-                        yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
+                    fig6.add_trace(go.Bar(
+                        name="Monto Recuperado", x=_camp_labels, y=_recuperados,
+                        marker_color=COLORS["success"],
+                        text=[fmt_currency(v) for v in _recuperados], textposition="outside",
+                        yaxis="y1",
+                    ))
+                    fig6.add_trace(go.Scatter(
+                        name="% Contacto", x=_camp_labels, y=_pct_contactos,
+                        mode="lines+markers+text",
+                        line=dict(color=COLORS["warning"], width=2.5),
+                        marker=dict(size=9, color=COLORS["warning"],
+                                    line=dict(color=COLORS["bg"], width=2)),
+                        text=[f"{v:.1f}%" for v in _pct_contactos], textposition="top center",
+                        textfont=dict(size=11, color=COLORS["warning"]),
+                        yaxis="y2",
+                    ))
+                    fig6.update_layout(
+                        **PLOTLY_LAYOUT,
+                        barmode="group",
+                        title=dict(text="Monto Asignado vs Recuperado y % Contacto — Últimas 4 Campañas",
+                                   font=dict(size=14, color=COLORS["primary"], weight=600)),
+                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña",
+                                   font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
+                        yaxis=dict(**_AXIS_DEFAULTS, title="Monto ($)"),
+                        yaxis2=dict(title="% Contacto", overlaying="y", side="right",
+                                    showgrid=False, ticksuffix="%",
+                                    titlefont=dict(color=COLORS["warning"]),
+                                    tickfont=dict(color=COLORS["warning"])),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     )
-                    _chart_card(fig)
+                    _chart_card(fig6)
+                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx", show_table=False)
 
         # ── Por Segmento ──────────────────────────────────────────────────────
         with sub[1]:
@@ -766,11 +794,7 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_seg["Pagado"]   = tabla_seg["Pagado"].apply(fmt_currency)
                 tabla_seg["PctRec"]   = tabla_seg["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_seg.columns = ["Segmento", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _pag_seg = _pagaron(df)
-                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx",
-                          df_base=_pag_seg,
-                          base_label=f"✅ Cuentas que pagaron ({len(_pag_seg):,} reg.)",
-                          base_filename="pagaron_por_segmento.xlsx")
+                _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx")
 
                 _section("Recuperación por Zona — todas las zonas")
                 g_zona = _grp(df, "zona", cols)
@@ -781,11 +805,7 @@ def tab_indicadores(df: pd.DataFrame):
                     tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
                     tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
                     tabla.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _pag_zona = _pagaron(df)
-                    _df_excel(tabla, "recuperacion_por_zona.xlsx",
-                              df_base=_pag_zona,
-                              base_label=f"✅ Cuentas que pagaron ({len(_pag_zona):,} reg.)",
-                              base_filename="pagaron_por_zona.xlsx")
+                    _df_excel(tabla, "recuperacion_por_zona.xlsx")
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Recuperación por Segmento × Últimas 4 Campañas")
@@ -832,11 +852,7 @@ def tab_indicadores(df: pd.DataFrame):
                         for c in last4:
                             if c in tbl_rc.columns:
                                 tbl_rc[c] = tbl_rc[c].apply(lambda v: f"{v:.1f}%")
-                        _pag_sc = _pagaron(df)
-                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx",
-                                  df_base=_pag_sc,
-                                  base_label=f"✅ Cuentas que pagaron ({len(_pag_sc):,} reg.)",
-                                  base_filename="pagaron_segmento_campana.xlsx")
+                        _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx")
 
         # ── Gestión Damas ─────────────────────────────────────────────────────
         with sub[2]:
@@ -1862,5 +1878,4 @@ def _render_indicadores_results():
     df = st.session_state.get("ind_df")
     if df is None:
         return
-    _banner("📊", "Indicadores de Mora", "Dashboard de cobranza y recuperación de cartera")
     tab_indicadores(df)
