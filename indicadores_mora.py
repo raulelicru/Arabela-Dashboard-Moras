@@ -700,10 +700,13 @@ def tab_indicadores(df: pd.DataFrame):
                         xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Campaña",
                                    font=dict(size=14, color=COLORS["primary"], weight=600)), type="category"),
                         yaxis=dict(**_AXIS_DEFAULTS, title="Monto ($)"),
-                        yaxis2=dict(title="% Contacto", overlaying="y", side="right",
-                                    showgrid=False, ticksuffix="%",
-                                    titlefont=dict(color=COLORS["warning"]),
-                                    tickfont=dict(color=COLORS["warning"])),
+                        yaxis2=dict(
+                            title=dict(text="% Contacto",
+                                       font=dict(color=COLORS["warning"])),
+                            overlaying="y", side="right",
+                            showgrid=False, ticksuffix="%",
+                            tickfont=dict(color=COLORS["warning"]),
+                        ),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     ))
                     _chart_card(fig6)
