@@ -565,7 +565,7 @@ def tab_indicadores(df: pd.DataFrame):
     # GESTIÓN MORAS
     # ══════════════════════════════════════════════════════════════════════════
     with main_tabs[0]:
-        sub = st.tabs(["📋 Ejecutivo", "📊 Por Segmento", "📞 Gestión Damas", "📋 Dictaminación", "⚠️ Alertas"])
+        sub = st.tabs(["📋 Ejecutivo", "📊 Por Segmento", "📞 Gestión Damas", "📋 Dictaminación"])
 
         # ── Ejecutivo ─────────────────────────────────────────────────────────
         with sub[0]:
@@ -757,37 +757,6 @@ def tab_indicadores(df: pd.DataFrame):
                     )
                     _chart_card(fig)
 
-                _section("Recuperación por Segmento × Geografía")
-                g2r = _grp2(df, "segmento", "ruta", cols)
-                if g2r is not None:
-                    fig = px.bar(g2r, x="ruta", y="PctRec", color="segmento", barmode="group",
-                                 color_discrete_map=seg_colors,
-                                 text=g2r["PctRec"].map(lambda v: f"{v:.1f}%"),
-                                 labels={"PctRec": "% Recuperación", "ruta": "Ruta", "segmento": "Segmento"},
-                                 title="% Recuperación por Segmento por Ruta")
-                    fig.update_traces(textposition="outside")
-                    fig.update_layout(**PLOTLY_LAYOUT,
-                                      xaxis=dict(**_AXIS_DEFAULTS, title="Ruta"),
-                                      yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
-                                      legend=dict(title=dict(text="Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
-                                                  yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    _chart_card(fig)
-
-                g2d = _grp2(df, "segmento", "division", cols)
-                if g2d is not None:
-                    fig = px.bar(g2d, x="division", y="PctRec", color="segmento", barmode="group",
-                                 color_discrete_map=seg_colors,
-                                 text=g2d["PctRec"].map(lambda v: f"{v:.1f}%"),
-                                 labels={"PctRec": "% Recuperación", "division": "División", "segmento": "Segmento"},
-                                 title="% Recuperación por Segmento por División")
-                    fig.update_traces(textposition="outside")
-                    fig.update_layout(**PLOTLY_LAYOUT,
-                                      xaxis=dict(**_AXIS_DEFAULTS, title="División"),
-                                      yaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación"),
-                                      legend=dict(title=dict(text="Segmento", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
-                                                  yanchor="bottom", y=1.02, xanchor="right", x=1))
-                    _chart_card(fig)
-
                 _section("Tabla por Segmento")
                 tabla_seg = g_seg[["segmento", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
                 tabla_seg["Asignado"] = tabla_seg["Asignado"].apply(fmt_currency)
@@ -796,16 +765,54 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_seg.columns = ["Segmento", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
                 _df_excel(tabla_seg, "recuperacion_por_segmento.xlsx")
 
-                _section("Recuperación por Zona — todas las zonas")
+                _section("Recuperación por Zona")
                 g_zona = _grp(df, "zona", cols)
                 if g_zona is not None:
-                    g_zona = g_zona.sort_values("PctRec", ascending=False)
-                    tabla = g_zona[["zona", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
-                    tabla["Asignado"] = tabla["Asignado"].apply(fmt_currency)
-                    tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
-                    tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
-                    tabla.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _df_excel(tabla, "recuperacion_por_zona.xlsx")
+                    g_zona_sorted = g_zona.sort_values("PctRec", ascending=False)
+                    top15 = g_zona_sorted.head(15).sort_values("PctRec")
+                    bot15 = g_zona_sorted.tail(15).sort_values("PctRec", ascending=False)
+                    z1, z2 = st.columns(2)
+                    with z1:
+                        fig_zt = go.Figure(go.Bar(
+                            x=top15["PctRec"], y=top15["zona"].astype(str),
+                            orientation="h",
+                            marker_color=[_color_pct(v) for v in top15["PctRec"]],
+                            text=[f"{v:.1f}%" for v in top15["PctRec"]], textposition="outside",
+                        ))
+                        fig_zt.update_layout(
+                            **PLOTLY_LAYOUT,
+                            title=dict(text="Top 15 Zonas — Mayor % Recuperación",
+                                       font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación",
+                                       range=[0, g_zona["PctRec"].max() * 1.35]),
+                            yaxis=dict(**_AXIS_DEFAULTS),
+                            height=max(320, 15 * 28 + 90),
+                        )
+                        _chart_card(fig_zt)
+                    with z2:
+                        fig_zb = go.Figure(go.Bar(
+                            x=bot15["PctRec"], y=bot15["zona"].astype(str),
+                            orientation="h",
+                            marker_color=[_color_pct(v) for v in bot15["PctRec"]],
+                            text=[f"{v:.1f}%" for v in bot15["PctRec"]], textposition="outside",
+                        ))
+                        fig_zb.update_layout(
+                            **PLOTLY_LAYOUT,
+                            title=dict(text="Top 15 Zonas — Menor % Recuperación",
+                                       font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación",
+                                       range=[0, g_zona["PctRec"].max() * 1.35]),
+                            yaxis=dict(**_AXIS_DEFAULTS),
+                            height=max(320, 15 * 28 + 90),
+                        )
+                        _chart_card(fig_zb)
+                    # Descarga completa de TODAS las zonas
+                    tabla_z_dl = g_zona_sorted[["zona", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
+                    tabla_z_dl["Asignado"] = tabla_z_dl["Asignado"].apply(fmt_currency)
+                    tabla_z_dl["Pagado"]   = tabla_z_dl["Pagado"].apply(fmt_currency)
+                    tabla_z_dl["PctRec"]   = tabla_z_dl["PctRec"].apply(lambda v: f"{v:.1f}%")
+                    tabla_z_dl.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
+                    _df_excel(tabla_z_dl, "recuperacion_por_zona.xlsx", show_table=False)
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Recuperación por Segmento × Últimas 4 Campañas")
@@ -873,22 +880,26 @@ def tab_indicadores(df: pd.DataFrame):
                 _section("Contacto General")
                 c1, c2 = st.columns(2)
                 with c1:
-                    labels_c = ["Contacto", "No Contacto", "Sin Estatus"]
-                    values_c = [n_contacto, n_no_contacto, n_otros]
-                    colors_c = [COLORS["success"], COLORS["danger"], COLORS["muted"]]
-                    pairs = [(l, v, c) for l, v, c in zip(labels_c, values_c, colors_c) if v > 0]
-                    if pairs:
-                        ls, vs, cs = zip(*pairs)
-                        fig = go.Figure(go.Pie(
-                            labels=ls, values=vs,
-                            marker=dict(colors=cs, line=dict(color=COLORS["bg"], width=2)),
-                            hole=0.45, textinfo="label+percent+value",
-                            textposition="outside",
-                            textfont=dict(size=11, color=COLORS["text2"]),
-                        ))
-                        fig.update_layout(**PLOTLY_LAYOUT, title=dict(text="Distribución de Contacto General", font=dict(size=14, color=COLORS["primary"], weight=600)),
-                                          legend=dict(orientation="h", yanchor="top", y=-0.08))
-                        _chart_card(fig)
+                    pct_cont_gral = n_contacto / total_cuentas * 100 if total_cuentas > 0 else 0
+                    fig = go.Figure(go.Pie(
+                        labels=["Contactadas", "No Contactadas"],
+                        values=[n_contacto, n_no_contacto + n_otros],
+                        marker=dict(colors=[COLORS["success"], COLORS["danger"]],
+                                    line=dict(color=COLORS["bg"], width=2)),
+                        hole=0.52,
+                        textinfo="label+percent",
+                        textposition="outside",
+                        textfont=dict(size=11, color=COLORS["text2"]),
+                    ))
+                    fig.update_layout(
+                        **PLOTLY_LAYOUT,
+                        title=dict(
+                            text=f"Total: {total_cuentas:,} damas · {pct_cont_gral:.1f}% contactación",
+                            font=dict(size=14, color=COLORS["primary"], weight=600),
+                        ),
+                        legend=dict(orientation="h", yanchor="top", y=-0.08),
+                    )
+                    _chart_card(fig)
 
                 with c2:
                     g_c_seg = _grp_contacto(df, "segmento", cols)
@@ -941,14 +952,67 @@ def tab_indicadores(df: pd.DataFrame):
                     else:
                         st.info("Sin columna de División.")
 
-                _section("Contacto por Zona — todas las zonas")
+                _section("Contactación por Zona")
                 g_c_zona = _grp_contacto(df, "zona", cols)
                 if g_c_zona is not None:
-                    g_c_zona = g_c_zona.sort_values("PctContacto", ascending=False)
-                    tabla = g_c_zona[["zona", "Total", "Contacto", "NoContacto", "PctContacto"]].copy()
-                    tabla["PctContacto"] = tabla["PctContacto"].apply(lambda v: f"{v:.1f}%")
-                    tabla.columns = ["Zona", "Total", "Contacto", "No Contacto", "% Contacto"]
-                    _df_excel(tabla, "contacto_por_zona.xlsx", df_base=df)
+                    g_c_zona_sorted = g_c_zona.sort_values("PctContacto", ascending=False)
+                    top15_ct = g_c_zona_sorted.head(15).sort_values("PctContacto")
+                    bot15_ct = g_c_zona_sorted.tail(15).sort_values("PctContacto", ascending=False)
+                    _max_ct = g_c_zona["PctContacto"].max()
+                    zc1, zc2 = st.columns(2)
+                    with zc1:
+                        fig_zct = go.Figure(go.Bar(
+                            x=top15_ct["PctContacto"], y=top15_ct["zona"].astype(str),
+                            orientation="h",
+                            marker_color=[_color_pct(v) for v in top15_ct["PctContacto"]],
+                            text=[f"{v:.1f}%" for v in top15_ct["PctContacto"]],
+                            textposition="outside",
+                        ))
+                        fig_zct.update_layout(
+                            **PLOTLY_LAYOUT,
+                            title=dict(text="Top 15 Zonas — Mayor % Contactación", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="% Contactación", range=[0, _max_ct * 1.35]),
+                            yaxis=dict(**_AXIS_DEFAULTS),
+                            height=max(320, 15 * 28 + 90),
+                        )
+                        _chart_card(fig_zct)
+                    with zc2:
+                        fig_zcb = go.Figure(go.Bar(
+                            x=bot15_ct["PctContacto"], y=bot15_ct["zona"].astype(str),
+                            orientation="h",
+                            marker_color=[_color_pct(v) for v in bot15_ct["PctContacto"]],
+                            text=[f"{v:.1f}%" for v in bot15_ct["PctContacto"]],
+                            textposition="outside",
+                        ))
+                        fig_zcb.update_layout(
+                            **PLOTLY_LAYOUT,
+                            title=dict(text="Bottom 15 Zonas — Menor % Contactación", font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="% Contactación", range=[0, _max_ct * 1.35]),
+                            yaxis=dict(**_AXIS_DEFAULTS),
+                            height=max(320, 15 * 28 + 90),
+                        )
+                        _chart_card(fig_zcb)
+
+                    # Download: all Contacto/No Contacto records excluding payers (Cambio 5)
+                    _ct_mask = estatus_upper.isin(["CONTACTO", "NO CONTACTO"])
+                    _no_pago_mask = df["__pago__"] == 0
+                    _base_contacto = df[_ct_mask & _no_pago_mask].copy()
+                    _base_contacto["Estatus de Contactación"] = (
+                        _base_contacto[contacto_col].astype(str).str.strip().str.upper()
+                        .map({"CONTACTO": "Contactada", "NO CONTACTO": "No Contactada"})
+                    )
+                    tabla_ct_dl = g_c_zona_sorted[["zona", "Total", "Contacto", "NoContacto", "PctContacto"]].copy()
+                    tabla_ct_dl["PctContacto"] = tabla_ct_dl["PctContacto"].apply(lambda v: f"{v:.1f}%")
+                    tabla_ct_dl.columns = ["Zona", "Total", "Contacto", "No Contacto", "% Contacto"]
+                    _df_excel(
+                        tabla_ct_dl,
+                        "contacto_por_zona.xlsx",
+                        btn_label="📥 Descargar resumen por zona",
+                        df_base=_base_contacto,
+                        base_label=f"📋 Base contacto/no contacto ({len(_base_contacto):,} reg.)",
+                        base_filename="base_contacto_no_contacto.xlsx",
+                        show_table=False,
+                    )
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Contactación × Últimas 4 Campañas")
@@ -1020,6 +1084,39 @@ def tab_indicadores(df: pd.DataFrame):
             if not dictam_col and not visita_col_real:
                 st.info("No se detectó la columna de Dictaminación (Col. AM) ni Visitas Gestor (Col. AO). "
                         "Usa el panel ⚙️ Ajustar columnas para asignarlas manualmente.")
+
+            # Cambio 10: 2 pie charts at the top
+            _section("Resumen de Dictaminación")
+            dp1, dp2 = st.columns(2)
+            with dp1:
+                if dictam_col:
+                    _raw_pie = df[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
+                    _raw_pie = _raw_pie[~_raw_pie.str.lower().isin(["nan", "none", ""])]
+                    _pc = _raw_pie.value_counts()
+                    _top6l = _pc.head(6)
+                    _otros_l = _pc[6:].sum()
+                    if _otros_l > 0:
+                        _top6l = pd.concat([_top6l, pd.Series({"Otros": _otros_l})])
+                    _chart_card(_pie_fig(_top6l.index.tolist(), _top6l.values.tolist(),
+                                         "Dictaminación por Llamadas"))
+                else:
+                    st.info("Sin columna de Dictaminación de Llamada.")
+            with dp2:
+                if visita_col_real:
+                    _vis_pie = df[visita_col_real].fillna("").astype(str).str.strip()
+                    _vis_pie = _vis_pie[~_vis_pie.str.lower().isin(["", "nan", "none", "0", "0.0"])]
+                    if len(_vis_pie) > 0:
+                        _pv = _vis_pie.value_counts()
+                        _top6v = _pv.head(6)
+                        _otros_v = _pv[6:].sum()
+                        if _otros_v > 0:
+                            _top6v = pd.concat([_top6v, pd.Series({"Otros": _otros_v})])
+                        _chart_card(_pie_fig(_top6v.index.tolist(), _top6v.values.tolist(),
+                                              "Dictaminación por Visitas"))
+                    else:
+                        st.info("Sin visitas registradas.")
+                else:
+                    st.info("Sin columna de Visitas Gestor.")
 
             if dictam_col:
                 raw_d = df[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
@@ -1159,6 +1256,37 @@ def tab_indicadores(df: pd.DataFrame):
 
                 _dictam_geo_chart("zona", "Dictaminaciones por Zona")
 
+                # Cambio 11: tabla zona × dictaminación llamadas (no contacto) descargable
+                _zona_col = cols.get("zona")
+                if _zona_col and _zona_col in df.columns:
+                    _section("Dictaminación de Llamadas por Zona")
+                    _df_ll = df[[_zona_col, dictam_col]].copy()
+                    _df_ll["__zona__"] = _df_ll[_zona_col].astype(str)
+                    _df_ll["__dict__"] = _df_ll[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
+                    _tot_zona = _df_ll.groupby("__zona__").size().rename("Total damas")
+                    _dict_zona = (
+                        _df_ll.groupby("__zona__")["__dict__"]
+                        .agg(lambda s: s.value_counts().idxmax() if len(s) > 0 else "")
+                        .rename("Dictaminación más frecuente")
+                    )
+                    _noct_zona = (
+                        _df_ll[_df_ll["__dict__"].str.upper().str.contains("NO CONTACTO|NO CONT|SIN CONT", na=False)]
+                        .groupby("__zona__").size().rename("No Contacto (llamadas)")
+                    )
+                    _tbl_ll = pd.concat([_tot_zona, _noct_zona, _dict_zona], axis=1).fillna(0).reset_index()
+                    _tbl_ll.columns = ["Zona", "Total damas", "No Contacto (llamadas)", "Dictaminación más frecuente"]
+                    _tbl_ll["No Contacto (llamadas)"] = _tbl_ll["No Contacto (llamadas)"].astype(int)
+                    _tbl_ll["% No Contacto"] = np.where(
+                        _tbl_ll["Total damas"] > 0,
+                        (_tbl_ll["No Contacto (llamadas)"] / _tbl_ll["Total damas"] * 100).round(1),
+                        0.0,
+                    )
+                    _tbl_ll["Estatus"] = _tbl_ll["% No Contacto"].apply(
+                        lambda v: "Crítica" if v >= 60 else ("Alta" if v >= 40 else "Normal"))
+                    _tbl_ll = _tbl_ll.sort_values("% No Contacto", ascending=False)
+                    _df_excel(_tbl_ll, "dictam_llamadas_por_zona.xlsx", show_table=True)
+
+            # Cambio 12: tabla zona × dictaminación visitas descargable
             _section("Resultados de Visitas de Gestor")
             if visita_col_real:
                 vis_vals = df[visita_col_real].fillna("").astype(str).str.strip()
@@ -1187,6 +1315,36 @@ def tab_indicadores(df: pd.DataFrame):
                     _chart_card(fig)
                 else:
                     st.info("No se encontraron visitas registradas.")
+
+                # Cambio 12: tabla zona × visitas descargable
+                _zona_col_v = cols.get("zona")
+                if _zona_col_v and _zona_col_v in df.columns:
+                    _df_vis = df[[_zona_col_v, visita_col_real]].copy()
+                    _df_vis["__zona__"] = _df_vis[_zona_col_v].astype(str)
+                    _df_vis["__vis__"] = _df_vis[visita_col_real].fillna("").astype(str).str.strip()
+                    _tot_zona_v = _df_vis.groupby("__zona__").size().rename("Total damas")
+                    _vis_zona = (
+                        _df_vis[~_df_vis["__vis__"].str.lower().isin(["", "nan", "none", "0", "0.0"])]
+                        .groupby("__zona__").size().rename("Con Visita")
+                    )
+                    _vis_res = (
+                        _df_vis[~_df_vis["__vis__"].str.lower().isin(["", "nan", "none", "0", "0.0"])]
+                        .groupby("__zona__")["__vis__"]
+                        .agg(lambda s: s.value_counts().idxmax() if len(s) > 0 else "")
+                        .rename("Resultado más frecuente")
+                    )
+                    _tbl_vis = pd.concat([_tot_zona_v, _vis_zona, _vis_res], axis=1).fillna(0).reset_index()
+                    _tbl_vis.columns = ["Zona", "Total damas", "Con Visita", "Resultado más frecuente"]
+                    _tbl_vis["Con Visita"] = _tbl_vis["Con Visita"].astype(int)
+                    _tbl_vis["% Cobertura Visita"] = np.where(
+                        _tbl_vis["Total damas"] > 0,
+                        (_tbl_vis["Con Visita"] / _tbl_vis["Total damas"] * 100).round(1),
+                        0.0,
+                    )
+                    _tbl_vis["Estatus"] = _tbl_vis["% Cobertura Visita"].apply(
+                        lambda v: "Alta cobertura" if v >= 60 else ("Media" if v >= 30 else "Baja cobertura"))
+                    _tbl_vis = _tbl_vis.sort_values("% Cobertura Visita", ascending=False)
+                    _df_excel(_tbl_vis, "visitas_por_zona.xlsx", show_table=True)
             else:
                 st.info("Configura la columna Visitas Gestor (Col. AO) para ver este gráfico.")
 
@@ -1203,32 +1361,6 @@ def tab_indicadores(df: pd.DataFrame):
                     rows_d.append(row)
                 _df_excel(pd.DataFrame(rows_d), "dictaminacion_ultimas4_campanas.xlsx", df_base=df)
 
-        # ── Alertas ───────────────────────────────────────────────────────────
-        with sub[4]:
-            _banner("⚠️", "Alertas", "Unidades con recuperación por debajo del umbral")
-            umbral = st.slider("Umbral de % de recuperación", 0, 100, 30, step=5)
-            any_alert = False
-            for col_key, label, fn in [
-                ("zona",     "Zona",    st.error),
-                ("ruta",     "Ruta",    st.warning),
-                ("region",   "Región",  st.warning),
-                ("division", "División", st.warning),
-            ]:
-                g = _grp(df, col_key, cols)
-                if g is None:
-                    continue
-                bajo = g[g["PctRec"] < umbral].sort_values("PctRec")
-                if len(bajo):
-                    any_alert = True
-                    fn(f"{len(bajo)} unidad(es) de **{label}** por debajo del {umbral}%")
-                    tabla = bajo[[col_key, "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
-                    tabla["Asignado"] = tabla["Asignado"].apply(fmt_currency)
-                    tabla["Pagado"]   = tabla["Pagado"].apply(fmt_currency)
-                    tabla["PctRec"]   = tabla["PctRec"].apply(lambda v: f"{v:.1f}%")
-                    tabla.columns = [label, "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _df_excel(tabla, f"alertas_{col_key}.xlsx", df_base=df)
-            if not any_alert:
-                st.success(f"✅ Todas las unidades superan el {umbral}% de recuperación.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # DIRECCIONES
