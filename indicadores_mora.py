@@ -1057,7 +1057,22 @@ def tab_indicadores(df: pd.DataFrame):
                         rows_ct.append({"Campaña": c, "Total": f"{n:,}", "Contacto": f"{ct:,}",
                                         "No Contacto": f"{nct:,}", "% Contacto": f"{pct:.1f}%"})
                     tbl_ct = pd.DataFrame(rows_ct)
-                    _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx", df_base=df)
+
+                    # Base completa: últimas 4 campañas, sin columnas de saldo/pago, con estatus contactación
+                    _base_camp_ct = df[df[camp_col_real].astype(str).isin(last4)].copy()
+                    _excl_ct = {"__saldo__", "__pago__"}
+                    if cols.get("saldo"): _excl_ct.add(cols["saldo"])
+                    if cols.get("pago"):  _excl_ct.add(cols["pago"])
+                    _base_camp_ct = _base_camp_ct[[c for c in _base_camp_ct.columns if c not in _excl_ct]]
+                    _base_camp_ct["Estatus de Contactación"] = (
+                        _base_camp_ct[contacto_col].astype(str).str.strip().str.upper()
+                        .map({"CONTACTO": "Contacto", "NO CONTACTO": "No Contacto"})
+                        .fillna("Sin Estatus")
+                    )
+                    _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx",
+                              df_base=_base_camp_ct,
+                              base_label=f"📋 Base completa ({len(_base_camp_ct):,} reg.)",
+                              base_filename="base_contacto_ultimas4_campanas.xlsx")
 
                     fig_ct = go.Figure()
                     for i, c in enumerate(reversed(last4)):
