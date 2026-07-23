@@ -494,8 +494,12 @@ def tab_indicadores(df: pd.DataFrame):
     df["__pago__"] = _to_num(df[cols["pago"]]) if cols.get("pago") else 0.0
 
     def _pagaron(d: pd.DataFrame) -> pd.DataFrame:
-        """Filas con pago > 0 (se recalcula sobre el df pasado para respetar filtros activos)."""
-        return d[d["__pago__"] > 0].copy()
+        """Filas con pago > 0. Columnas originales primero, luego __saldo__, __pago__, __estatus__."""
+        pag = d[d["__pago__"] > 0].copy()
+        _computed = ["__saldo__", "__pago__", "__estatus__"]
+        _orig = [c for c in pag.columns if c not in _computed]
+        _extra = [c for c in _computed if c in pag.columns]
+        return pag[_orig + _extra]
 
     # ── Filtro global de Campaña ──────────────────────────────────────────────
     camp_col = cols.get("campania")
@@ -607,7 +611,8 @@ def tab_indicadores(df: pd.DataFrame):
                             _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname,
                                       df_base=_pag,
                                       base_label=f"✅ Cuentas que pagaron ({len(_pag):,} reg.)",
-                                      base_filename=f"pagaron_{fname}")
+                                      base_filename=f"pagaron_{fname}",
+                                      show_table=False)
                         else:
                             _df_excel(tbl_geo.sort_values("% Recuperación", ascending=False), fname,
                                       show_table=False)
