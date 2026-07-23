@@ -966,40 +966,60 @@ def tab_indicadores(df: pd.DataFrame):
                 g_c_zona = _grp_contacto(df, "zona", cols)
                 if g_c_zona is not None:
                     g_c_zona_sorted = g_c_zona.sort_values("PctContacto", ascending=False)
-                    top15_ct = g_c_zona_sorted.head(15).sort_values("PctContacto")
-                    bot15_ct = g_c_zona_sorted.tail(15).sort_values("PctContacto", ascending=False)
-                    _max_ct = g_c_zona["PctContacto"].max()
+                    top15_ct = g_c_zona_sorted.head(15).sort_values("PctContacto", ascending=False)
+                    bot15_ct = g_c_zona_sorted.tail(15).sort_values("PctContacto")
+                    _h_ct = max(380, 520)
                     zc1, zc2 = st.columns(2)
                     with zc1:
-                        fig_zct = go.Figure(go.Bar(
-                            x=top15_ct["PctContacto"], y=top15_ct["zona"].astype(str),
-                            orientation="h",
-                            marker_color=[_color_pct(v) for v in top15_ct["PctContacto"]],
-                            text=[f"{v:.1f}%" for v in top15_ct["PctContacto"]],
+                        fig_zct = go.Figure()
+                        fig_zct.add_trace(go.Bar(
+                            name="Total cuentas",
+                            x=top15_ct["zona"].astype(str), y=top15_ct["Total"],
+                            marker_color=COLORS["muted"],
+                            text=top15_ct["Total"].map(lambda v: f"{v:,}"),
+                            textposition="outside",
+                        ))
+                        fig_zct.add_trace(go.Bar(
+                            name="Contactadas",
+                            x=top15_ct["zona"].astype(str), y=top15_ct["Contacto"],
+                            marker_color=COLORS["success"],
+                            text=[f"{v:,} ({p:.1f}%)" for v, p in zip(top15_ct["Contacto"], top15_ct["PctContacto"])],
                             textposition="outside",
                         ))
                         fig_zct.update_layout(
                             **PLOTLY_LAYOUT,
+                            barmode="group",
                             title=dict(text="Top 15 Zonas — Mayor % Contactación", font=dict(size=14, color=COLORS["primary"], weight=600)),
-                            xaxis=dict(**_AXIS_DEFAULTS, title="% Contactación", range=[0, _max_ct * 1.35]),
-                            yaxis=dict(**_AXIS_DEFAULTS),
-                            height=max(320, 15 * 28 + 90),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Zona", type="category", tickangle=-45),
+                            yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                            height=_h_ct,
                         )
                         _chart_card(fig_zct)
                     with zc2:
-                        fig_zcb = go.Figure(go.Bar(
-                            x=bot15_ct["PctContacto"], y=bot15_ct["zona"].astype(str),
-                            orientation="h",
-                            marker_color=[_color_pct(v) for v in bot15_ct["PctContacto"]],
-                            text=[f"{v:.1f}%" for v in bot15_ct["PctContacto"]],
+                        fig_zcb = go.Figure()
+                        fig_zcb.add_trace(go.Bar(
+                            name="Total cuentas",
+                            x=bot15_ct["zona"].astype(str), y=bot15_ct["Total"],
+                            marker_color=COLORS["muted"],
+                            text=bot15_ct["Total"].map(lambda v: f"{v:,}"),
+                            textposition="outside",
+                        ))
+                        fig_zcb.add_trace(go.Bar(
+                            name="No Contactadas",
+                            x=bot15_ct["zona"].astype(str), y=bot15_ct["NoContacto"],
+                            marker_color=COLORS["danger"],
+                            text=[f"{v:,} ({100-p:.1f}%)" for v, p in zip(bot15_ct["NoContacto"], bot15_ct["PctContacto"])],
                             textposition="outside",
                         ))
                         fig_zcb.update_layout(
                             **PLOTLY_LAYOUT,
+                            barmode="group",
                             title=dict(text="Bottom 15 Zonas — Menor % Contactación", font=dict(size=14, color=COLORS["primary"], weight=600)),
-                            xaxis=dict(**_AXIS_DEFAULTS, title="% Contactación", range=[0, _max_ct * 1.35]),
-                            yaxis=dict(**_AXIS_DEFAULTS),
-                            height=max(320, 15 * 28 + 90),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Zona", type="category", tickangle=-45),
+                            yaxis=dict(**_AXIS_DEFAULTS, title="Cuentas"),
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                            height=_h_ct,
                         )
                         _chart_card(fig_zcb)
 
