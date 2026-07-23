@@ -493,13 +493,19 @@ def tab_indicadores(df: pd.DataFrame):
     df["__saldo__"] = _to_num(df[cols["saldo"]]) if cols.get("saldo") else 0.0
     df["__pago__"] = _to_num(df[cols["pago"]]) if cols.get("pago") else 0.0
 
+    _PAGARON_COLS = [
+        "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
+        "Direccion", "Referencia", "Localidad", "TelefonoCasa",
+        "AnioSaldo", "CampaniaSaldo", "ImporteNetoFactura", "SaldoDama",
+        "MotivoNoCobro", "TelefonoCelular", "DescSituacion", "DescSituacionCie",
+        "id", "Morosidad", "Pago", "__saldo__", "__pago__", "__estatus__",
+    ]
+
     def _pagaron(d: pd.DataFrame) -> pd.DataFrame:
-        """Filas con pago > 0. Columnas originales primero, luego __saldo__, __pago__, __estatus__."""
+        """Filas con pago > 0, solo las columnas del archivo de ejemplo."""
         pag = d[d["__pago__"] > 0].copy()
-        _computed = ["__saldo__", "__pago__", "__estatus__"]
-        _orig = [c for c in pag.columns if c not in _computed]
-        _extra = [c for c in _computed if c in pag.columns]
-        return pag[_orig + _extra]
+        keep = [c for c in _PAGARON_COLS if c in pag.columns]
+        return pag[keep]
 
     # ── Filtro global de Campaña ──────────────────────────────────────────────
     camp_col = cols.get("campania")
