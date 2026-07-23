@@ -782,41 +782,40 @@ def tab_indicadores(df: pd.DataFrame):
                     g_zona_sorted = g_zona.sort_values("PctRec", ascending=False)
                     top15 = g_zona_sorted.head(15).sort_values("PctRec")
                     bot15 = g_zona_sorted.tail(15).sort_values("PctRec", ascending=False)
+                    _max_asig = g_zona["Asignado"].max()
+                    _h_zona = max(380, 15 * 32 + 100)
+
+                    def _zona_asig_pago_chart(gdf, title):
+                        _labels = gdf["zona"].astype(str).tolist()
+                        fig = go.Figure()
+                        fig.add_trace(go.Bar(
+                            name="Asignado", x=gdf["Asignado"], y=_labels,
+                            orientation="h", marker_color=COLORS["accent"],
+                            text=[fmt_currency(v) for v in gdf["Asignado"]],
+                            textposition="outside",
+                        ))
+                        fig.add_trace(go.Bar(
+                            name="Pagado", x=gdf["Pagado"], y=_labels,
+                            orientation="h", marker_color=COLORS["success"],
+                            text=[fmt_currency(v) for v in gdf["Pagado"]],
+                            textposition="outside",
+                        ))
+                        fig.update_layout(
+                            **PLOTLY_LAYOUT,
+                            barmode="group",
+                            title=dict(text=title, font=dict(size=14, color=COLORS["primary"], weight=600)),
+                            xaxis=dict(**_AXIS_DEFAULTS, title="Monto ($)", range=[0, _max_asig * 1.4]),
+                            yaxis=dict(**_AXIS_DEFAULTS, type="category"),
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                            height=_h_zona,
+                        )
+                        return fig
+
                     z1, z2 = st.columns(2)
                     with z1:
-                        fig_zt = go.Figure(go.Bar(
-                            x=top15["PctRec"], y=top15["zona"].astype(str),
-                            orientation="h",
-                            marker_color=[_color_pct(v) for v in top15["PctRec"]],
-                            text=[f"{v:.1f}%" for v in top15["PctRec"]], textposition="outside",
-                        ))
-                        fig_zt.update_layout(
-                            **PLOTLY_LAYOUT,
-                            title=dict(text="Top 15 Zonas — Mayor % Recuperación",
-                                       font=dict(size=14, color=COLORS["primary"], weight=600)),
-                            xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación",
-                                       range=[0, g_zona["PctRec"].max() * 1.35]),
-                            yaxis=dict(**_AXIS_DEFAULTS),
-                            height=max(320, 15 * 28 + 90),
-                        )
-                        _chart_card(fig_zt)
+                        _chart_card(_zona_asig_pago_chart(top15, "Top 15 Zonas — Mayor Recuperación"))
                     with z2:
-                        fig_zb = go.Figure(go.Bar(
-                            x=bot15["PctRec"], y=bot15["zona"].astype(str),
-                            orientation="h",
-                            marker_color=[_color_pct(v) for v in bot15["PctRec"]],
-                            text=[f"{v:.1f}%" for v in bot15["PctRec"]], textposition="outside",
-                        ))
-                        fig_zb.update_layout(
-                            **PLOTLY_LAYOUT,
-                            title=dict(text="Top 15 Zonas — Menor % Recuperación",
-                                       font=dict(size=14, color=COLORS["primary"], weight=600)),
-                            xaxis=dict(**_AXIS_DEFAULTS, title="% Recuperación",
-                                       range=[0, g_zona["PctRec"].max() * 1.35]),
-                            yaxis=dict(**_AXIS_DEFAULTS),
-                            height=max(320, 15 * 28 + 90),
-                        )
-                        _chart_card(fig_zb)
+                        _chart_card(_zona_asig_pago_chart(bot15, "Bottom 15 Zonas — Menor Recuperación"))
                     # Descarga completa de TODAS las zonas
                     tabla_z_dl = g_zona_sorted[["zona", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
                     tabla_z_dl["Asignado"] = tabla_z_dl["Asignado"].apply(fmt_currency)
