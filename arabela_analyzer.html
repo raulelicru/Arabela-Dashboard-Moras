@@ -1725,7 +1725,69 @@ async function renderDupMap(data, view) {
       font: { family: _F, color: _T2 },
       hoverlabel: { bgcolor: '#fff', bordercolor: '#e1e0d9', font: { family: _F, size: 12.5, color: '#0b0b0b' } }
     }, { displayModeBar: false, responsive: true });
+
+    legendEl.textContent = 'Haz clic en una división para ver sus estados';
+
+    mapDiv.on('plotly_click', function(ev) {
+      if (!ev.points || !ev.points[0]) return;
+      const divName = ev.points[0].y;
+      _showDivEstados(dupRows, divName, _F, _T2);
+    });
   }
+}
+
+function _showDivEstados(dupRows, divName, _F, _T2) {
+  const panel = document.getElementById('dupStatePanel');
+  if (!panel) return;
+
+  const rows = dupRows.filter(r => (r.DIVISION || '').trim() === divName);
+  const byEst = {};
+  rows.forEach(r => {
+    const k = (r.ESTADO || 'Sin Estado').trim();
+    if (k) byEst[k] = (byEst[k]||0)+1;
+  });
+
+  const entries = Object.entries(byEst).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) {
+    panel.style.display = 'block';
+    panel.innerHTML = `<p style="color:#94a3b8;font-family:Inter,sans-serif;text-align:center;padding:20px 0;">Sin datos de estado para <b>${divName}</b>.</p>`;
+    return;
+  }
+
+  const labels = entries.map(([k]) => k);
+  const values = entries.map(([,v]) => v);
+  const CAT = ['#2a78d6','#1baf7a','#e87ba4','#eb6834','#4a3aa7','#eda100','#e34948','#008300'];
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span style="font-weight:700;font-size:14px;color:#1a3c6e;font-family:Inter,sans-serif;">
+        Estados — ${divName} (${rows.length.toLocaleString('es-MX')} duplicados)
+      </span>
+      <button onclick="document.getElementById('dupStatePanel').style.display='none'"
+        style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8;line-height:1;">✕</button>
+    </div>
+    <div id="divEstadosChart"></div>`;
+
+  const chartDiv = document.getElementById('divEstadosChart');
+  Plotly.newPlot(chartDiv, [{
+    type: 'bar', orientation: 'h',
+    x: values, y: labels,
+    marker: { color: labels.map((_,i) => CAT[i % CAT.length]), opacity: 0.85, line: { width: 0 } },
+    text: values.map(v => v.toLocaleString('es-MX')),
+    textposition: 'outside',
+    textfont: { size: 11, color: '#52514e', family: _F },
+    hovertemplate: '<b>%{y}</b><br>Duplicados: <b>%{x:,}</b><extra></extra>',
+    cliponaxis: false
+  }], {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#f9f9f7',
+    margin: { l: 160, r: 70, t: 10, b: 30 },
+    height: Math.max(220, entries.length * 36 + 60),
+    xaxis: { showgrid: true, gridcolor: '#e1e0d9', zeroline: false, tickfont: { size: 10, color: '#52514e', family: _F } },
+    yaxis: { autorange: 'reversed', tickfont: { size: 11, color: '#0b0b0b', family: _F } },
+    font: { family: _F, color: '#52514e' },
+    hoverlabel: { bgcolor: '#fff', bordercolor: '#e1e0d9', font: { family: _F, size: 12.5, color: '#0b0b0b' } }
+  }, { displayModeBar: false, responsive: true });
 }
 
 // Fallback when GeoJSON fetch fails — uses bubbles on scattergeo
