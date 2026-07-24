@@ -1133,7 +1133,8 @@ function initDashboard(){
   setupTabs();
   setupGlobalFilters();
   setupTableControls();
-  document.getElementById('downloadBtn').addEventListener('click', downloadReport);
+  const _dlBtn = document.getElementById('downloadBtn');
+  if (_dlBtn) _dlBtn.addEventListener('click', downloadReport);
   document.getElementById('resetFilters').addEventListener('click', ()=>{
     window.appState.currentFilters = { division:'', estado:'' };
     document.getElementById('filterDivision').value = '';
