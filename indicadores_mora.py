@@ -493,6 +493,17 @@ def tab_indicadores(df: pd.DataFrame):
     df["__saldo__"] = _to_num(df[cols["saldo"]]) if cols.get("saldo") else 0.0
     df["__pago__"] = _to_num(df[cols["pago"]]) if cols.get("pago") else 0.0
 
+    _GERENTE_DL_COLS = [
+        "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
+        "Direccion", "Referencia", "Localidad", "TelefonoCasa",
+        "AnioSaldo", "CampaniaSaldo", "ImporteNetoFactura", "SaldoDama",
+        "MotivoNoCobro", "TelefonoCelular", "DescSituacion", "DescSituacionCie",
+        "id", "Morosidad", "Estatus de llamada", "Visitas Gestor", "Geolocalizacion",
+        "Saldo ", "Pago ", "Fecha de Gestion", "Medio de verificacion", "Comentarios",
+        "Numero de Recibo", "Gerente", "Tel de Gerente", "GESTION", "COMENTARIO",
+        "Saldo en Web", "Pagos", "__saldo__", "__pago__", "__estatus__",
+    ]
+
     _PAGARON_COLS = [
         "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
         "Direccion", "Referencia", "Localidad", "TelefonoCasa",
@@ -1739,6 +1750,8 @@ def tab_indicadores(df: pd.DataFrame):
                         ).round(1)
                         todas_zonas["% Entrega Gerente"] = todas_zonas["% Entrega Gerente"].apply(lambda v: f"{v:.1f}%")
                         _ger_base = df[_gerente_mask].copy()
+                        _ger_keep = [c for c in _GERENTE_DL_COLS if c in _ger_base.columns]
+                        _ger_base = _ger_base[_ger_keep]
                         _df_excel(todas_zonas, "todas_zonas_gerente.xlsx",
                                   df_base=_ger_base,
                                   base_label=f"🚚 Entregadas por Gerente ({len(_ger_base):,} reg.)",
