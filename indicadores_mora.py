@@ -1266,14 +1266,34 @@ def tab_indicadores(df: pd.DataFrame):
                     ))
                     _chart_card(fig)
 
-                    # Tabla pivot descargable
+                    # Tabla pivot descargable (top N zonas)
                     piv_dl = piv.copy().reset_index()
                     piv_dl.columns.name = None
                     piv_dl = piv_dl.rename(columns={"__g__": geo_key.title()})
                     piv_dl["Total"] = piv_dl.iloc[:, 1:].sum(axis=1)
                     piv_dl = piv_dl.sort_values("Total", ascending=False)
+
+                    # Base completa: pivot de TODAS las zonas, sin Ya pago
+                    if show_base:
+                        _df2_all = df[[dictam_col, geo_col]].copy()
+                        _df2_all["__d__"] = _df2_all[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
+                        _df2_all["__g__"] = _df2_all[geo_col].astype(str)
+                        _df2_all = _df2_all[_df2_all["__d__"].isin(top5_vals)]
+                        _cross_all = _df2_all.groupby(["__g__", "__d__"]).size().reset_index(name="Cuentas")
+                        _piv_all = _cross_all.pivot_table(
+                            index="__g__", columns="__d__", values="Cuentas", fill_value=0
+                        ).reset_index()
+                        _piv_all.columns.name = None
+                        _piv_all = _piv_all.rename(columns={"__g__": geo_key.title()})
+                        _piv_all["Total"] = _piv_all.iloc[:, 1:].sum(axis=1)
+                        _piv_all = _piv_all.sort_values("Total", ascending=False)
+                        _base_for_dl = _piv_all
+                    else:
+                        _base_for_dl = None
+
                     _df_excel(piv_dl, f"dictam_{geo_key}.xlsx",
-                              df_base=df if show_base else None)
+                              df_base=_base_for_dl,
+                              base_filename=f"base_dictam_{geo_key}.xlsx")
 
                 _section("Dictaminaciones por Geografía (Top 5 resultados)")
                 c1, c2 = st.columns(2)
