@@ -1025,12 +1025,22 @@ def tab_indicadores(df: pd.DataFrame):
 
                     # Download: all Contacto/No Contacto records excluding payers (Cambio 5)
                     _ct_mask = estatus_upper.isin(["CONTACTO", "NO CONTACTO"])
+                    _CONTACTO_DL_COLS = [
+                        "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
+                        "Direccion", "Referencia", "Localidad", "TelefonoCasa",
+                        "AnioSaldo", "CampaniaSaldo", "ImporteNetoFactura", "SaldoDama",
+                        "MotivoNoCobro", "TelefonoCelular", "IdSituacion", "DescSituacion",
+                        "id", "Morosidad", "__saldo__", "__pago__", "__estatus__",
+                        "Estatus de Contactación",
+                    ]
                     _no_pago_mask = df["__pago__"] == 0
                     _base_contacto = df[_ct_mask & _no_pago_mask].copy()
                     _base_contacto["Estatus de Contactación"] = (
                         _base_contacto[contacto_col].astype(str).str.strip().str.upper()
                         .map({"CONTACTO": "Contactada", "NO CONTACTO": "No Contactada"})
                     )
+                    _keep_ct = [c for c in _CONTACTO_DL_COLS if c in _base_contacto.columns]
+                    _base_contacto = _base_contacto[_keep_ct]
                     tabla_ct_dl = g_c_zona_sorted[["zona", "Total", "Contacto", "NoContacto", "PctContacto"]].copy()
                     tabla_ct_dl["PctContacto"] = tabla_ct_dl["PctContacto"].apply(lambda v: f"{v:.1f}%")
                     tabla_ct_dl.columns = ["Zona", "Total", "Contacto", "No Contacto", "% Contacto"]
