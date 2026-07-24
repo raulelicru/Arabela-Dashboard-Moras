@@ -1559,7 +1559,7 @@ function renderDuplicatesSection(data){
 function downloadDupDomicilios(){
   if(!_dupGroupList.length){ alert('Sin datos de duplicados para exportar.'); return; }
   // Sheet 1: resumen — one row per address group
-  const hdr = ['Cuentas','Dirección','Colonia','Población','Estado','División','No. Dama (cuentas)'];
+  const hdr = ['Cuentas','Dirección','Colonia','División','No. Dama (cuentas)','Zona'];
   const resRows = [hdr];
   // Sheet 2: detalle — one row per account
   const hdr2 = ['Dirección','Cuentas en Domicilio','No. Dama','Nombre','División','Zona','Colonia','Población','Estado'];
@@ -1570,10 +1570,9 @@ function downloadDupDomicilios(){
       g.n,
       addr || 'SIN DIRECCIÓN',
       s.COLONIA || '',
-      s.POBLACION || '',
-      s.ESTADO || '',
       s.DIVISION || '',
-      g.rows.map(r=>r.NO_DAMA).join(', ')
+      g.rows.map(r=>r.NO_DAMA).join(', '),
+      s.ZONA || ''
     ]);
     g.rows.forEach(r=>{
       detRows.push([
