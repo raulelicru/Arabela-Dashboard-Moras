@@ -493,6 +493,14 @@ def tab_indicadores(df: pd.DataFrame):
     df["__saldo__"] = _to_num(df[cols["saldo"]]) if cols.get("saldo") else 0.0
     df["__pago__"] = _to_num(df[cols["pago"]]) if cols.get("pago") else 0.0
 
+    _DICTAM_ZONA_DL_COLS = [
+        "REGION", "RUTA", "DIVISION", "ID COBRADOR", "NoDama", "Nombre",
+        "Direccion", "Referencia", "Localidad", "TelefonoCasa",
+        "AnioSaldo", "CampaniaSaldo", "ImporteNetoFactura", "SaldoDama",
+        "MotivoNoCobro", "TelefonoCelular", "DescSituacion", "DescSituacionCie",
+        "Morosidad", "Dictaminacion", "Estatus de llamada", "Visitas Gestor", "__estatus__",
+    ]
+
     _GERENTE_DL_COLS = [
         "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
         "Direccion", "Referencia", "Localidad", "TelefonoCasa",
@@ -1273,21 +1281,19 @@ def tab_indicadores(df: pd.DataFrame):
                     piv_dl["Total"] = piv_dl.iloc[:, 1:].sum(axis=1)
                     piv_dl = piv_dl.sort_values("Total", ascending=False)
 
-                    # Base completa: pivot de TODAS las zonas, sin Ya pago
+                    # Base completa: registros individuales sin 'Ya pago', columnas del ejemplo
                     if show_base:
-                        _df2_all = df[[dictam_col, geo_col]].copy()
-                        _df2_all["__d__"] = _df2_all[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
-                        _df2_all["__g__"] = _df2_all[geo_col].astype(str)
-                        _df2_all = _df2_all[_df2_all["__d__"].isin(top5_vals)]
-                        _cross_all = _df2_all.groupby(["__g__", "__d__"]).size().reset_index(name="Cuentas")
-                        _piv_all = _cross_all.pivot_table(
-                            index="__g__", columns="__d__", values="Cuentas", fill_value=0
-                        ).reset_index()
-                        _piv_all.columns.name = None
-                        _piv_all = _piv_all.rename(columns={"__g__": geo_key.title()})
-                        _piv_all["Total"] = _piv_all.iloc[:, 1:].sum(axis=1)
-                        _piv_all = _piv_all.sort_values("Total", ascending=False)
-                        _base_for_dl = _piv_all
+                        _base_raw = df.copy()
+                        _excl_ya = "ya pago (solicitar comprobante)"
+                        if dictam_col in _base_raw.columns:
+                            _base_raw = _base_raw[
+                                ~_base_raw[dictam_col].fillna("").astype(str).str.strip().str.lower()
+                                .eq(_excl_ya)
+                            ]
+                            if dictam_col != "Dictaminacion":
+                                _base_raw = _base_raw.rename(columns={dictam_col: "Dictaminacion"})
+                        _keep_dz = [c for c in _DICTAM_ZONA_DL_COLS if c in _base_raw.columns]
+                        _base_for_dl = _base_raw[_keep_dz]
                     else:
                         _base_for_dl = None
 
