@@ -1458,6 +1458,7 @@ function sortEntries(entries, sortState){
 let estadoSortState = { col:null, dir:1 };
 
 function renderEstadoSection(stats){
+  if (!document.getElementById('chartEstadoGrouped')) return;
   destroyChart('estGrouped');
   const labels = Object.keys(stats.estados);
   const ctx = document.getElementById('chartEstadoGrouped').getContext('2d');
