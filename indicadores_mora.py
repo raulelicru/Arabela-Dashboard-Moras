@@ -1152,36 +1152,6 @@ def tab_indicadores(df: pd.DataFrame):
                 all_counts = raw_d.value_counts()
                 top5_vals  = all_counts.head(5).index.tolist()
 
-                _section("Distribución de Dictaminaciones")
-                c1, c2 = st.columns(2)
-                with c1:
-                    top10_d = all_counts.head(10).sort_values()
-                    fig = go.Figure(go.Bar(
-                        x=top10_d.values, y=top10_d.index, orientation="h",
-                        marker_color=CAT_COLORS[0],
-                        text=[f"{v:,}" for v in top10_d.values], textposition="outside",
-                    ))
-                    fig.update_layout(
-                        **PLOTLY_LAYOUT, title=dict(text="Top 10 Dictaminaciones de Llamada", font=dict(size=14, color=COLORS["primary"], weight=600)),
-                        xaxis=dict(**_AXIS_DEFAULTS, title=dict(text="Cuentas", font=dict(size=14, color=COLORS["primary"], weight=600)),
-                                   range=[0, top10_d.max() * 1.4]),
-                        yaxis=dict(**_AXIS_DEFAULTS),
-                        height=max(300, len(top10_d) * 32 + 90),
-                    )
-                    _chart_card(fig)
-                with c2:
-                    top6 = all_counts.head(6)
-                    otros = all_counts[6:].sum()
-                    if otros > 0:
-                        top6 = pd.concat([top6, pd.Series({"Otros": otros})])
-                    _chart_card(_pie_fig(top6.index.tolist(), top6.values.tolist(),
-                                         "Distribución General de Dictaminaciones"))
-
-                # Tabla completa de dictaminaciones
-                tbl_dict = all_counts.reset_index()
-                tbl_dict.columns = ["Dictaminación", "Cuentas"]
-                tbl_dict["% del Total"] = (tbl_dict["Cuentas"] / len(df) * 100).apply(lambda v: f"{v:.1f}%")
-                _df_excel(tbl_dict, "dictaminaciones_completo.xlsx", df_base=df)
 
                 def _dictam_geo_chart(geo_key, title, max_geo=15):
                     geo_col = cols.get(geo_key)
