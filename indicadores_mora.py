@@ -1671,7 +1671,8 @@ def tab_indicadores(df: pd.DataFrame):
                 st.dataframe(tabla_sit, use_container_width=True, hide_index=True)
                 fecha_hoy = pd.Timestamp.today().strftime("%Y%m%d")
                 _df_excel(df.copy(), f"detalle_situaciones_entrega_{fecha_hoy}.xlsx",
-                          btn_label=f"📥 Descargar detalle completo ({len(df):,} registros)")
+                          btn_label=f"📥 Descargar detalle completo ({len(df):,} registros)",
+                          show_table=False)
 
                 _section("Top 10 Zonas — Entregado por Gerente")
                 zona_col_d = cols.get("zona")
