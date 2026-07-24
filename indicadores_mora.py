@@ -1098,13 +1098,14 @@ def tab_indicadores(df: pd.DataFrame):
                         .map({"CONTACTO": "Contacto", "NO CONTACTO": "No Contacto"})
                         .fillna("Sin Estatus")
                     )
-                    if dictam_col and dictam_col in _base_camp_ct.columns:
+                    _dictam_col_ct = cols.get("promesa") or cols.get("dictaminacion")
+                    if _dictam_col_ct and _dictam_col_ct in _base_camp_ct.columns:
                         _base_camp_ct = _base_camp_ct[
-                            ~_base_camp_ct[dictam_col].fillna("").astype(str).str.strip().str.lower()
+                            ~_base_camp_ct[_dictam_col_ct].fillna("").astype(str).str.strip().str.lower()
                             .eq("ya pago (solicitar comprobante)")
                         ]
-                        if dictam_col != "Dictaminacion":
-                            _base_camp_ct = _base_camp_ct.rename(columns={dictam_col: "Dictaminacion"})
+                        if _dictam_col_ct != "Dictaminacion":
+                            _base_camp_ct = _base_camp_ct.rename(columns={_dictam_col_ct: "Dictaminacion"})
                     _CONTACTO_CAMP_DL_COLS = [
                         "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
                         "Direccion", "Referencia", "Localidad", "TelefonoCasa",
