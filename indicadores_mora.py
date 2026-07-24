@@ -1243,7 +1243,7 @@ def tab_indicadores(df: pd.DataFrame):
                     piv_dl = piv_dl.rename(columns={"__g__": geo_key.title()})
                     piv_dl["Total"] = piv_dl.iloc[:, 1:].sum(axis=1)
                     piv_dl = piv_dl.sort_values("Total", ascending=False)
-                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx", df_base=df)
+                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx")
 
                 _section("Dictaminaciones por Geografía (Top 5 resultados)")
                 c1, c2 = st.columns(2)
