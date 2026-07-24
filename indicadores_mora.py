@@ -1095,6 +1095,17 @@ def tab_indicadores(df: pd.DataFrame):
                             ~_base_camp_ct[dictam_col].fillna("").astype(str).str.strip().str.lower()
                             .eq("ya pago (solicitar comprobante)")
                         ]
+                        if dictam_col != "Dictaminacion":
+                            _base_camp_ct = _base_camp_ct.rename(columns={dictam_col: "Dictaminacion"})
+                    _CONTACTO_CAMP_DL_COLS = [
+                        "REGION", "RUTA", "DIVISION", "Zona", "NoDama", "Nombre",
+                        "Direccion", "Referencia", "Localidad", "TelefonoCasa",
+                        "AnioSaldo", "CampaniaSaldo", "ImporteNetoFactura", "MotivoNoCobro",
+                        "TelefonoCelular", "DescSituacion", "DescSituacionCie", "id",
+                        "Morosidad", "Dictaminacion", "Estatus de Contactación",
+                    ]
+                    _keep_camp = [c for c in _CONTACTO_CAMP_DL_COLS if c in _base_camp_ct.columns]
+                    _base_camp_ct = _base_camp_ct[_keep_camp]
                     _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx",
                               df_base=_base_camp_ct,
                               base_label=f"📋 Base completa ({len(_base_camp_ct):,} reg.)",
