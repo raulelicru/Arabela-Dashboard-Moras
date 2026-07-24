@@ -788,6 +788,46 @@ class ArabelaAnalyzer {
     return t;
   }
 
+  /* ---------- Código Postal → Estado mexicano (rangos oficiales) ---------- */
+  static cpToEstado(cpStr) {
+    const n = parseInt(String(cpStr).replace(/\D/g,''), 10);
+    if (isNaN(n) || n < 1000 || n > 99999) return '';
+    if (n <= 16999) return 'CIUDAD DE MEXICO';
+    if (n <= 17999) return 'ESTADO DE MEXICO';   // bolsa EDOMEX dentro CDMX
+    if (n <= 19999) return 'CIUDAD DE MEXICO';
+    if (n <= 20999) return 'AGUASCALIENTES';
+    if (n <= 22999) return 'BAJA CALIFORNIA';
+    if (n <= 23999) return 'BAJA CALIFORNIA SUR';
+    if (n <= 24999) return 'CAMPECHE';
+    if (n <= 27999) return 'COAHUILA';
+    if (n <= 28999) return 'COLIMA';
+    if (n <= 30999) return 'CHIAPAS';
+    if (n <= 33999) return 'CHIHUAHUA';
+    if (n <= 35999) return 'DURANGO';
+    if (n <= 38999) return 'GUANAJUATO';
+    if (n <= 41999) return 'GUERRERO';
+    if (n <= 43999) return 'HIDALGO';
+    if (n <= 49999) return 'JALISCO';
+    if (n <= 57999) return 'ESTADO DE MEXICO';
+    if (n <= 61999) return 'MICHOACAN';
+    if (n <= 62999) return 'MORELOS';
+    if (n <= 63999) return 'NAYARIT';
+    if (n <= 67999) return 'NUEVO LEON';
+    if (n <= 71999) return 'OAXACA';
+    if (n <= 75999) return 'PUEBLA';
+    if (n <= 76999) return 'QUERETARO';
+    if (n <= 77999) return 'QUINTANA ROO';
+    if (n <= 79999) return 'SAN LUIS POTOSI';
+    if (n <= 82999) return 'SINALOA';
+    if (n <= 85999) return 'SONORA';
+    if (n <= 86999) return 'TABASCO';
+    if (n <= 89999) return 'TAMAULIPAS';
+    if (n <= 90999) return 'TLAXCALA';
+    if (n <= 96999) return 'VERACRUZ';
+    if (n <= 97999) return 'YUCATAN';
+    return 'ZACATECAS';
+  }
+
   /* ---------- Extrae el primer número real luego de "NO" (que no sea S/N) ---------- */
   static extractNumero(direccion){
     const m = direccion.match(/\bNO\.?\s*(\d+[A-Z]?)\b/);
@@ -1003,9 +1043,20 @@ function runAnalysisPipeline(dataRows, colMap){
       const direccionCorregida = ArabelaAnalyzer.cleanDireccion(direccionRaw);
       const colonia = ArabelaAnalyzer.cleanColonia(getCell(row,'colonia'));
       const poblacion = ArabelaAnalyzer.normalizeText(getCell(row,'poblacion'));
-      const estado = ArabelaAnalyzer.normalizeText(getCell(row,'estado'));
+      let estado = ArabelaAnalyzer.normalizeText(getCell(row,'estado'));
       const division = ArabelaAnalyzer.normalizeText(getCell(row,'division')) || 'SIN DIVISION';
       const cp = String(getCell(row,'cp')).trim();
+
+      // Derivar estado del CP cuando la columna ESTADO está vacía
+      if (!estado) {
+        // Intentar primero la columna CP, luego extraerlo de la dirección
+        let cpVal = cp;
+        if (!cpVal || !/^\d{5}$/.test(cpVal)) {
+          const mCP = String(direccionRaw).match(/\bCP\s*(\d{5})\b/i);
+          if (mCP) cpVal = mCP[1];
+        }
+        if (cpVal) estado = ArabelaAnalyzer.cpToEstado(cpVal);
+      }
 
       const clasif = ArabelaAnalyzer.classifyAddress(direccionCorregida);
       const rowObj = {
