@@ -1153,7 +1153,7 @@ def tab_indicadores(df: pd.DataFrame):
                 top5_vals  = all_counts.head(5).index.tolist()
 
 
-                def _dictam_geo_chart(geo_key, title, max_geo=15):
+                def _dictam_geo_chart(geo_key, title, max_geo=15, show_base=False):
                     geo_col = cols.get(geo_key)
                     if not geo_col or geo_col not in df.columns:
                         st.info(f"Sin columna de {geo_key.title()}.")
@@ -1243,7 +1243,8 @@ def tab_indicadores(df: pd.DataFrame):
                     piv_dl = piv_dl.rename(columns={"__g__": geo_key.title()})
                     piv_dl["Total"] = piv_dl.iloc[:, 1:].sum(axis=1)
                     piv_dl = piv_dl.sort_values("Total", ascending=False)
-                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx")
+                    _df_excel(piv_dl, f"dictam_{geo_key}.xlsx",
+                              df_base=df if show_base else None)
 
                 _section("Dictaminaciones por Geografía (Top 5 resultados)")
                 c1, c2 = st.columns(2)
@@ -1252,7 +1253,7 @@ def tab_indicadores(df: pd.DataFrame):
                 with c2:
                     _dictam_geo_chart("division", "Dictaminaciones por División")
 
-                _dictam_geo_chart("zona", "Dictaminaciones por Zona")
+                _dictam_geo_chart("zona", "Dictaminaciones por Zona", show_base=True)
 
                 # Cambio 11: tabla zona × dictaminación llamadas (no contacto) descargable
                 _zona_col = cols.get("zona")
@@ -1339,25 +1340,11 @@ def tab_indicadores(df: pd.DataFrame):
                         (_tbl_vis["Con Visita"] / _tbl_vis["Total damas"] * 100).round(1),
                         0.0,
                     )
-                    _tbl_vis["Estatus"] = _tbl_vis["% Cobertura Visita"].apply(
-                        lambda v: "Alta cobertura" if v >= 60 else ("Media" if v >= 30 else "Baja cobertura"))
                     _tbl_vis = _tbl_vis.sort_values("% Cobertura Visita", ascending=False)
                     _df_excel(_tbl_vis, "visitas_por_zona.xlsx", show_table=True)
             else:
                 st.info("Configura la columna Visitas Gestor (Col. AO) para ver este gráfico.")
 
-            if last4 and camp_col_real and dictam_col:
-                _section("📅 Comparativo — Dictaminaciones × Últimas 4 Campañas")
-                rows_d = []
-                for c in reversed(last4):
-                    dfc = df[df[camp_col_real].astype(str) == c]
-                    top3 = dfc[dictam_col].fillna("").astype(str).str.strip().value_counts().head(3)
-                    row = {"Campaña": c, "Total Cuentas": f"{len(dfc):,}"}
-                    for j, (k, v) in enumerate(top3.items()):
-                        row[f"#{j+1} Dictaminación"] = k
-                        row[f"#{j+1} Cuentas"] = f"{v:,}"
-                    rows_d.append(row)
-                _df_excel(pd.DataFrame(rows_d), "dictaminacion_ultimas4_campanas.xlsx", df_base=df)
 
 
     # ══════════════════════════════════════════════════════════════════════════
