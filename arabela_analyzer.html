@@ -523,14 +523,9 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
     <div class="tabs" id="tabs">
       <button class="tab-btn active" data-tab="resumen" style="color:#1a3c6e">Resumen</button>
       <button class="tab-btn" data-tab="division" style="color:#fff">Por División</button>
-      <button class="tab-btn" data-tab="estado" style="color:#fff">Por Estado</button>
       <button class="tab-btn" data-tab="duplicados" style="color:#fff">Duplicados</button>
       <button class="tab-btn" data-tab="tabla" style="color:#fff">Tabla</button>
       <button class="tab-btn" data-tab="alertas" style="color:#fff">Alertas</button>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button class="btn btn-accent" id="downloadBtn">⬇ Reporte HTML</button>
-      <button class="btn btn-accent" id="excelBtn" style="display:none;background:linear-gradient(135deg,#166534,#16a34a);color:#fff;">📊 Excel</button>
     </div>
   </nav>
 
@@ -585,18 +580,6 @@ footer.note{color:var(--muted);font-size:12px;text-align:center;padding:24px 0;}
       <div class="card">
         <h3>Tabla comparativa por División</h3>
         <div class="table-scroll"><table id="tableDivision"></table></div>
-      </div>
-    </section>
-
-    <!-- ============ SECCION 3: POR ESTADO ============ -->
-    <section class="section" id="sec-estado">
-      <div class="card" style="margin-bottom:16px;">
-        <h3>Distribución por Estado</h3>
-        <div class="chart-box" style="height:340px;"><canvas id="chartEstadoGrouped"></canvas></div>
-      </div>
-      <div class="card">
-        <h3>Tabla por Estado</h3>
-        <div class="table-scroll"><table id="tableEstado"></table></div>
       </div>
     </section>
 
