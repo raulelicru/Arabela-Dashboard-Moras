@@ -1150,7 +1150,9 @@ def tab_indicadores(df: pd.DataFrame):
                 raw_d = df[dictam_col].fillna("Sin Dictaminación").astype(str).str.strip()
                 raw_d = raw_d[~raw_d.str.lower().isin(["nan", "none", ""])]
                 all_counts = raw_d.value_counts()
-                top5_vals  = all_counts.head(5).index.tolist()
+                _dictam_excl = {"ya pago (solicitar comprobante)"}
+                top5_vals = [v for v in all_counts.index.tolist()
+                             if v.lower() not in _dictam_excl][:5]
 
 
                 def _dictam_geo_chart(geo_key, title, max_geo=15, show_base=False):
@@ -1657,7 +1659,7 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_sit["% del Total"] = (tabla_sit["Pedidos"] / total_dom * 100).apply(lambda v: f"{v:.1f}%")
                 st.dataframe(tabla_sit, use_container_width=True, hide_index=True)
                 fecha_hoy = pd.Timestamp.today().strftime("%Y%m%d")
-                _df_excel(df.copy(), f"detalle_situaciones_entrega_{fecha_hoy}.xlsx",
+                _df_excel(tabla_sit, f"detalle_situaciones_entrega_{fecha_hoy}.xlsx",
                           btn_label=f"📥 Descargar detalle completo ({len(df):,} registros)",
                           show_table=False)
 
