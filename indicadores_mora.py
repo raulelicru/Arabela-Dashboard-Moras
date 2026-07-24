@@ -1100,33 +1100,6 @@ def tab_indicadores(df: pd.DataFrame):
                                          showlegend=False)
                     _chart_card(fig_ct)
 
-                    g_ct_seg = _grp_camp(df, "segmento", cols, last4)
-                    if g_ct_seg is not None:
-                        # Recalcular para contacto
-                        dfc2 = df[df[camp_col_real].astype(str).isin(last4)].copy()
-                        dfc2["_ct"] = dfc2[contacto_col].astype(str).str.strip().str.upper().eq("CONTACTO").astype(int)
-                        seg_col_r = cols.get("segmento")
-                        if seg_col_r:
-                            gc2 = dfc2.groupby([seg_col_r, camp_col_real]).agg(
-                                Total=(seg_col_r, "count"), Contacto=("_ct", "sum")).reset_index()
-                            gc2.columns = ["segmento", "Campaña", "Total", "Contacto"]
-                            gc2["PctContacto"] = np.where(gc2["Total"] > 0, gc2["Contacto"] / gc2["Total"] * 100, 0)
-                            camp_order2 = list(reversed(last4))
-                            color_map2 = {c: CAMP_COLORS[i % 4] for i, c in enumerate(camp_order2)}
-                            fig2 = px.bar(gc2, x="segmento", y="PctContacto", color="Campaña",
-                                          barmode="group",
-                                          color_discrete_map=color_map2,
-                                          text=gc2["PctContacto"].map(lambda v: f"{v:.1f}%"),
-                                          category_orders={"Campaña": camp_order2},
-                                          labels={"PctContacto": "% Contacto", "segmento": "Segmento"},
-                                          title="% Contacto por Segmento — Últimas 4 Campañas")
-                            fig2.update_traces(textposition="outside")
-                            fig2.update_layout(**PLOTLY_LAYOUT,
-                                               xaxis=dict(**_AXIS_DEFAULTS, title="Segmento"),
-                                               yaxis=dict(**_AXIS_DEFAULTS, title="% Contacto"),
-                                               legend=dict(title=dict(text="Campaña", font=dict(size=14, color=COLORS["primary"], weight=600)), orientation="h",
-                                                           yanchor="bottom", y=1.02, xanchor="right", x=1))
-                            _chart_card(fig2)
 
         # ── Dictaminación ─────────────────────────────────────────────────────
         with sub[3]:
