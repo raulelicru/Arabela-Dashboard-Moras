@@ -1090,6 +1090,11 @@ def tab_indicadores(df: pd.DataFrame):
                         .map({"CONTACTO": "Contacto", "NO CONTACTO": "No Contacto"})
                         .fillna("Sin Estatus")
                     )
+                    if dictam_col and dictam_col in _base_camp_ct.columns:
+                        _base_camp_ct = _base_camp_ct[
+                            ~_base_camp_ct[dictam_col].fillna("").astype(str).str.strip().str.lower()
+                            .eq("ya pago (solicitar comprobante)")
+                        ]
                     _df_excel(tbl_ct, "contacto_ultimas4_campanas.xlsx",
                               df_base=_base_camp_ct,
                               base_label=f"📋 Base completa ({len(_base_camp_ct):,} reg.)",
