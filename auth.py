@@ -72,14 +72,13 @@ def login(sb: Client, email: str, password: str) -> bool:
         st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
 
         profile = (
-            sb.table("profiles")
-            .select("role")
+            sb.table("gestores")
+            .select("rol")
             .eq("id", resp.user.id)
             .execute()
         )
-        st.session_state["role"] = (
-            profile.data[0]["role"] if profile.data else "user"
-        )
+        raw_rol = profile.data[0]["rol"] if profile.data else "gestor"
+        st.session_state["role"] = "admin" if raw_rol == "supervisor" else "user"
         return True
     except Exception:
         st.error("❌ Correo o contraseña incorrectos.")
