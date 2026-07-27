@@ -6,6 +6,12 @@ import streamlit as st
 from supabase import Client
 
 BUCKET = "uploads"
+_MAX_FILE_MB = 50
+_ALLOWED_EXTENSIONS = {".xlsx", ".xls"}
+_ALLOWED_MIME = {
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+}
 
 
 def _safe_filename(name: str) -> str:
@@ -34,7 +40,6 @@ def _storage_upload(sb: Client, path: str, file_bytes: bytes) -> bool:
     except Exception as e:
         st.session_state["_upload_error"] = str(e)
         return False
-        return False
 
 
 def _storage_download(sb: Client, path: str) -> bytes | None:
@@ -47,7 +52,24 @@ def _storage_download(sb: Client, path: str) -> bytes | None:
 
 # ── Uploads (genérico) ────────────────────────────────────────────────────────
 
+def _validate_upload(uploaded_file) -> str | None:
+    """Devuelve mensaje de error o None si el archivo es válido."""
+    import pathlib
+    ext = pathlib.Path(uploaded_file.name).suffix.lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        return f"Tipo de archivo no permitido ({ext}). Solo se aceptan archivos Excel (.xlsx)."
+    size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+    if size_mb > _MAX_FILE_MB:
+        return f"El archivo es demasiado grande ({size_mb:.1f} MB). Máximo permitido: {_MAX_FILE_MB} MB."
+    return None
+
+
 def _upload_file(sb: Client, table: str, prefix: str, user_id: str, uploaded_file) -> dict | None:
+    err = _validate_upload(uploaded_file)
+    if err:
+        st.error(f"⚠️ {err}")
+        return None
+
     upload_id = str(uuid.uuid4())
     safe_name = _safe_filename(uploaded_file.name)
     path = f"{prefix}/{upload_id}/{safe_name}"
