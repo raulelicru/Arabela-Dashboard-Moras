@@ -816,7 +816,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.add_trace(go.Bar(
                             name="Pagado", x=gdf["Pagado"], y=_labels,
                             orientation="h", marker_color=COLORS["success"],
-                            text=[fmt_currency(v) for v in gdf["Pagado"]],
+                            text=[f"{fmt_currency(v)} ({p:.1f}%)" for v, p in zip(gdf["Pagado"], gdf["PctRec"])],
                             textposition="outside",
                         ))
                         fig.update_layout(
