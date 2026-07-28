@@ -816,7 +816,7 @@ def tab_indicadores(df: pd.DataFrame):
                         fig.add_trace(go.Bar(
                             name="Pagado", x=gdf["Pagado"], y=_labels,
                             orientation="h", marker_color=COLORS["success"],
-                            text=[fmt_currency(v) for v in gdf["Pagado"]],
+                            text=[f"{fmt_currency(v)} ({p:.1f}%)" for v, p in zip(gdf["Pagado"], gdf["PctRec"])],
                             textposition="outside",
                         ))
                         fig.update_layout(
@@ -889,6 +889,17 @@ def tab_indicadores(df: pd.DataFrame):
                             if c in tbl_rc.columns:
                                 tbl_rc[c] = tbl_rc[c].apply(lambda v: f"{v:.1f}%")
                         _df_excel(tbl_rc, "recuperacion_segmento_campana.xlsx")
+
+                    g_zc = _grp_camp(df, "zona", cols, last4)
+                    if g_zc is not None:
+                        _section("📅 Comparativo — Recuperación por Zona × Últimas 4 Campañas")
+                        tbl_zc = g_zc.pivot_table(index="zona", columns="Campaña", values="PctRec", fill_value=0).reset_index()
+                        tbl_zc.columns.name = None
+                        tbl_zc = tbl_zc.rename(columns={"zona": "Zona"})
+                        for c in last4:
+                            if c in tbl_zc.columns:
+                                tbl_zc[c] = tbl_zc[c].apply(lambda v: f"{v:.1f}%")
+                        _df_excel(tbl_zc, "recuperacion_zona_campana.xlsx")
 
         # ── Gestión Damas ─────────────────────────────────────────────────────
         with sub[2]:

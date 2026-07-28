@@ -72,14 +72,13 @@ def login(sb: Client, email: str, password: str) -> bool:
         st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
 
         profile = (
-            sb.table("profiles")
-            .select("role")
+            sb.table("gestores")
+            .select("rol")
             .eq("id", resp.user.id)
             .execute()
         )
-        st.session_state["role"] = (
-            profile.data[0]["role"] if profile.data else "user"
-        )
+        raw_rol = profile.data[0]["rol"] if profile.data else "gestor"
+        st.session_state["role"] = "admin" if raw_rol == "supervisor" else "user"
         return True
     except Exception:
         st.error("❌ Correo o contraseña incorrectos.")
@@ -102,19 +101,28 @@ def require_auth(sb: Client):
         st.stop()
 
 
-_USERS = {
-    "Raul Elizalde":          "raulelicru@gmail.com",
-    "Ángeles Cruz":           "angeleselicru@gmail.com",
-    "Claudia Vallejo":        "claudia.vallejo@cgconsultoresjuridicos.mx",
-    "Patty Cruz":             "pattycruzguzman@gmail.com",
-    "Lourdes Martinez":       "lourdes.martinez@arabela.com",
-    "Eduardo Perez":          "eduardo.perez@arabela.com",
-    "Jenifer Cravioto":       "jenifer.cravioto@arabela.com",
+# Carga la lista de usuarios desde st.secrets["users"] (producción)
+# o desde el dict de respaldo para desarrollo local.
+_USERS_FALLBACK = {
+    "Raul Elizalde":    "raulelicru@gmail.com",
+    "Ángeles Cruz":     "angeleselicru@gmail.com",
+    "Claudia Vallejo":  "claudia.vallejo@cgconsultoresjuridicos.mx",
+    "Patty Cruz":       "pattycruzguzman@gmail.com",
+    "Lourdes Martinez": "lourdes.martinez@arabela.com",
+    "Eduardo Perez":    "eduardo.perez@arabela.com",
+    "Jenifer Cravioto": "jenifer.cravioto@arabela.com",
 }
+
+def _load_users() -> dict:
+    try:
+        return dict(st.secrets["users"])
+    except Exception:
+        return _USERS_FALLBACK
 
 
 def _show_login_page(sb: Client):
     logo_path = pathlib.Path(__file__).parent / "logo_crz.png"
+    users = _load_users()
 
     _, col, _ = st.columns([1, 1.8, 1])
     with col:
@@ -125,7 +133,7 @@ def _show_login_page(sb: Client):
         st.divider()
 
         with st.form("login_form"):
-            name = st.selectbox("¿Quién eres?", list(_USERS.keys()))
+            name = st.selectbox("¿Quién eres?", list(users.keys()))
             password = st.text_input("Contraseña", type="password", placeholder="••••••••")
             submitted = st.form_submit_button(
                 "Iniciar sesión", use_container_width=True, type="primary"
@@ -136,5 +144,5 @@ def _show_login_page(sb: Client):
                 st.warning("Ingresa tu contraseña.")
             else:
                 with st.spinner("Verificando..."):
-                    if login(sb, _USERS[name], password):
+                    if login(sb, users[name], password):
                         st.rerun()

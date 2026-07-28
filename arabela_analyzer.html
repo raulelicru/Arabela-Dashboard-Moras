@@ -709,7 +709,7 @@ class ArabelaAnalyzer {
     zona:        ['zona'],
     campana:     ['campana','campaa','campaña','campaign'],
     refPago:     ['referencia de pago','ref pago','referencia pago'],
-    noDama:      ['no. dama','no dama','numero de dama','num dama','no.dama'],
+    noDama:      ['no. dama','no dama','numero de dama','num dama','no.dama','dama','n dama','n. dama','nro dama','nro. dama','numero dama','n° dama','no°dama','nodama','id dama','folio dama'],
     nombre:      ['nombre'],
     direccion:   ['direccion','direccin','domicilio'],
     cp:          ['cp','codigo postal'],
@@ -1541,11 +1541,13 @@ function renderDuplicatesSection(data){
     const n = g.n;
     const sample = g.rows[0];
     const color = n>=10?'#EF4444':n>=5?'#F59E0B':n>=3?'#D97706':'#64748B';
+    const damas = g.rows.map(r=>r.NO_DAMA).filter(Boolean).join(', ');
     return `<div class="dup-card">
       <div class="dup-num" style="color:${color};">${n}</div>
       <div class="dup-info">
         <div class="dup-addr">${addr || 'SIN DIRECCION'}</div>
         <div class="dup-meta">${sample.COLONIA || ''} · ${sample.POBLACION || ''} · ${sample.ESTADO || ''} · ${sample.DIVISION || ''}</div>
+        ${damas ? `<div class="dup-meta" style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;">No. Dama: ${damas}</div>` : ''}
       </div>
     </div>`;
   }).join('') || '<p style="color:var(--muted);">No se encontraron domicilios duplicados con los filtros actuales.</p>';
