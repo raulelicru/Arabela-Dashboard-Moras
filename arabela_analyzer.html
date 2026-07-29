@@ -743,6 +743,7 @@ class ArabelaAnalyzer {
     const norm = h => String(h||'').toLowerCase().trim()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const map = {};
+    // Pass 1: exact alias match
     headerRow.forEach((h,idx)=>{
       const nh = norm(h);
       for(const key in ArabelaAnalyzer.COLUMN_ALIASES){
@@ -751,6 +752,13 @@ class ArabelaAnalyzer {
         if(aliases.includes(nh)){ map[key] = idx; }
       }
     });
+    // Pass 2: substring fallback — any header containing "dama" maps to noDama
+    if(map['noDama'] === undefined){
+      headerRow.forEach((h,idx)=>{
+        if(map['noDama'] !== undefined) return;
+        if(norm(h).includes('dama')){ map['noDama'] = idx; }
+      });
+    }
     return map;
   }
 
