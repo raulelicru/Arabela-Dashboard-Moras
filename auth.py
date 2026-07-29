@@ -71,14 +71,22 @@ def login(sb: Client, email: str, password: str) -> bool:
         st.session_state["_refresh_token"] = resp.session.refresh_token
         st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
 
-        profile = (
-            sb.table("gestores")
-            .select("rol")
-            .eq("id", resp.user.id)
-            .execute()
-        )
-        raw_rol = profile.data[0]["rol"] if profile.data else "gestor"
-        st.session_state["role"] = "admin" if raw_rol == "supervisor" else "user"
+        # Check admin list from secrets first; fall back to gestores table
+        admin_emails = _load_admins()
+        if resp.user.email in admin_emails:
+            st.session_state["role"] = "admin"
+        else:
+            try:
+                profile = (
+                    sb.table("gestores")
+                    .select("rol")
+                    .eq("id", resp.user.id)
+                    .execute()
+                )
+                raw_rol = profile.data[0]["rol"] if profile.data else "gestor"
+                st.session_state["role"] = "admin" if raw_rol == "supervisor" else "user"
+            except Exception:
+                st.session_state["role"] = "user"
         return True
     except Exception:
         st.error("❌ Correo o contraseña incorrectos.")
@@ -113,11 +121,24 @@ _USERS_FALLBACK = {
     "Jenifer Cravioto": "jenifer.cravioto@arabela.com",
 }
 
+_ADMINS_FALLBACK = {
+    "raulelicru@gmail.com",
+    "angeleselicru@gmail.com",
+}
+
 def _load_users() -> dict:
     try:
         return dict(st.secrets["users"])
     except Exception:
         return _USERS_FALLBACK
+
+
+def _load_admins() -> set:
+    """Emails con rol admin, leídos de st.secrets['admins'] o del fallback."""
+    try:
+        return set(st.secrets["admins"])
+    except Exception:
+        return _ADMINS_FALLBACK
 
 
 def _show_login_page(sb: Client):
