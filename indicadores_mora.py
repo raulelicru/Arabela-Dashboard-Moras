@@ -546,6 +546,21 @@ def tab_indicadores(df: pd.DataFrame):
             df = df[df[camp_col].astype(str).isin(sel)]
             st.caption(f"Campañas activas: **{', '.join(sorted(sel, key=_camp_key))}** — {len(df):,} registros")
 
+    # ── Filtro global de División (solo Admin) ───────────────────────────────
+    if is_admin():
+        div_col = cols.get("division")
+        if div_col and div_col in df.columns:
+            raw_divs = sorted(df[div_col].dropna().astype(str).unique().tolist())
+            sel_div = st.multiselect(
+                "🏢 División — filtra todo el dashboard (solo admin)",
+                options=raw_divs,
+                default=raw_divs,
+                key="div_filter_global",
+            )
+            if sel_div and len(sel_div) < len(raw_divs):
+                df = df[df[div_col].astype(str).isin(sel_div)]
+                st.caption(f"Divisiones activas: **{', '.join(sel_div)}** — {len(df):,} registros")
+
     # Últimas 4 campañas del universo actual (post-filtro)
     last4 = _last4_camps(df, cols)
     camp_col_real = cols.get("campania")

@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import pathlib
+import re
 
 import pandas as pd
 import streamlit as st
@@ -119,20 +120,27 @@ with top_tabs[0]:
         sel_nombres = st.multiselect(
             "📂 Archivos de cartera a combinar",
             nombres,
-            default=[nombres[0]],
+            default=nombres,
             key="cart_selector",
-            help="Selecciona uno o varios archivos. Si eliges varios, sus datos se combinan y puedes filtrar por campaña.",
+            help="Selecciona uno o varios archivos. Sus datos se combinan y puedes filtrar por campaña con el selector que aparece abajo.",
         )
 
         if sel_nombres:
-            ids_sel = [u["id"] for u in all_carteras if u["filename"] in sel_nombres]
+            sel_meta = [u for u in all_carteras if u["filename"] in sel_nombres]
             dfs = []
             with st.spinner("Cargando archivos..."):
-                for uid in ids_sel:
-                    data = get_cartera_by_id(sb, uid)
+                for u in sel_meta:
+                    data = get_cartera_by_id(sb, u["id"])
                     if data:
                         fb, _ = data
-                        dfs.append(read_excel_safe(io.BytesIO(fb)))
+                        df_tmp = read_excel_safe(io.BytesIO(fb))
+                        # Inject a Campaña column from the filename so the
+                        # campaign filter always works across multiple files.
+                        m = re.search(r'campa[ñn]a\s*(\d+)', u["filename"], re.IGNORECASE)
+                        camp_label = m.group(1) if m else u["filename"]
+                        if "Campaña" not in df_tmp.columns and "CampaniaSaldo" not in df_tmp.columns:
+                            df_tmp["Campaña"] = camp_label
+                        dfs.append(df_tmp)
 
             if dfs:
                 df_combined = pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
