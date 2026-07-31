@@ -3,6 +3,7 @@ import io
 import json
 import pathlib
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -113,24 +114,34 @@ with top_tabs[0]:
     all_carteras = list_uploads(sb, "cartera_uploads")
 
     if all_carteras:
-        opciones = {u["filename"]: u["id"] for u in all_carteras}
-        sel_nombre = st.selectbox(
-            "📂 Selecciona el archivo de cartera",
-            list(opciones.keys()),
+        nombres = [u["filename"] for u in all_carteras]
+        # Por defecto selecciona el más reciente
+        sel_nombres = st.multiselect(
+            "📂 Archivos de cartera a combinar",
+            nombres,
+            default=[nombres[0]],
             key="cart_selector",
+            help="Selecciona uno o varios archivos. Si eliges varios, sus datos se combinan y puedes filtrar por campaña.",
         )
-        sel_id = opciones[sel_nombre]
-        sel_meta_raw = next(u for u in all_carteras if u["id"] == sel_id)
 
-        with st.spinner("Cargando datos de cartera..."):
-            cart_data = get_cartera_by_id(sb, sel_id)
+        if sel_nombres:
+            ids_sel = [u["id"] for u in all_carteras if u["filename"] in sel_nombres]
+            dfs = []
+            with st.spinner("Cargando archivos..."):
+                for uid in ids_sel:
+                    data = get_cartera_by_id(sb, uid)
+                    if data:
+                        fb, _ = data
+                        dfs.append(read_excel_safe(io.BytesIO(fb)))
 
-        if cart_data:
-            file_bytes, meta = cart_data
-            df = read_excel_safe(io.BytesIO(file_bytes))
-            st.session_state["ind_df"] = df
-            st.session_state["ind_file_name"] = meta["filename"]
-            st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+            if dfs:
+                df_combined = pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
+                st.session_state["ind_df"] = df_combined
+                st.session_state["ind_file_name"] = " + ".join(sel_nombres)
+                st.caption(f"📊 {len(dfs)} archivo(s) · **{len(df_combined):,}** registros combinados")
+            else:
+                st.session_state.pop("ind_df", None)
+                st.session_state.pop("ind_file_name", None)
         else:
             st.session_state.pop("ind_df", None)
             st.session_state.pop("ind_file_name", None)
