@@ -12,6 +12,7 @@ from database import (
     upload_domicilios_file,
     get_latest_cartera,
     get_latest_domicilios,
+    get_cartera_by_id,
     list_uploads,
     delete_upload,
 )
@@ -109,18 +110,42 @@ top_tabs = st.tabs(["📊 Indicadores de Mora", "🏠 Revisión de Domicilios"])
 
 # ── Tab 1: Indicadores de Mora ────────────────────────────────────────────────
 with top_tabs[0]:
-    with st.spinner("Cargando datos de cartera..."):
-        cart_data = get_latest_cartera(sb)
+    all_carteras = list_uploads(sb, "cartera_uploads")
 
-    if cart_data:
-        file_bytes, meta = cart_data
-        df = read_excel_safe(io.BytesIO(file_bytes))
-        st.session_state["ind_df"] = df
-        st.session_state["ind_file_name"] = meta["filename"]
-        st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+    if all_carteras:
+        opciones = {u["filename"]: u["id"] for u in all_carteras}
+        sel_nombre = st.selectbox(
+            "📂 Selecciona el archivo de cartera",
+            list(opciones.keys()),
+            key="cart_selector",
+        )
+        sel_id = opciones[sel_nombre]
+        sel_meta_raw = next(u for u in all_carteras if u["id"] == sel_id)
+
+        with st.spinner("Cargando datos de cartera..."):
+            cart_data = get_cartera_by_id(sb, sel_id)
+
+        if cart_data:
+            file_bytes, meta = cart_data
+            df = read_excel_safe(io.BytesIO(file_bytes))
+            st.session_state["ind_df"] = df
+            st.session_state["ind_file_name"] = meta["filename"]
+            st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+        else:
+            st.session_state.pop("ind_df", None)
+            st.session_state.pop("ind_file_name", None)
     else:
-        st.session_state.pop("ind_df", None)
-        st.session_state.pop("ind_file_name", None)
+        with st.spinner("Cargando datos de cartera..."):
+            cart_data = get_latest_cartera(sb)
+        if cart_data:
+            file_bytes, meta = cart_data
+            df = read_excel_safe(io.BytesIO(file_bytes))
+            st.session_state["ind_df"] = df
+            st.session_state["ind_file_name"] = meta["filename"]
+            st.caption(f"📊 Cartera: **{meta['filename']}** · cargado el {meta['uploaded_at'][:10]}")
+        else:
+            st.session_state.pop("ind_df", None)
+            st.session_state.pop("ind_file_name", None)
 
     _render_indicadores_results()
 
