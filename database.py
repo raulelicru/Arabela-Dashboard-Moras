@@ -145,6 +145,34 @@ def get_latest_domicilios(sb: Client) -> tuple[bytes, dict] | None:
     return _get_latest_cached(sb, "domicilios_uploads", "_domicilios_cache")
 
 
+def get_cartera_by_id(sb: Client, upload_id: str) -> tuple[bytes, dict] | None:
+    """Descarga un archivo de cartera específico por su ID."""
+    try:
+        result = (
+            sb.table("cartera_uploads")
+            .select("*")
+            .eq("id", upload_id)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        if not result.data:
+            return None
+        meta = result.data[0]
+        cache_key = f"_cartera_cache_{upload_id}"
+        cached = st.session_state.get(cache_key, {})
+        if cached.get("upload_id") == upload_id:
+            return cached["file_bytes"], meta
+        file_bytes = _storage_download(sb, meta["storage_path"])
+        if file_bytes is None:
+            return None
+        st.session_state[cache_key] = {"upload_id": upload_id, "file_bytes": file_bytes}
+        return file_bytes, meta
+    except Exception as e:
+        st.error(f"Error al obtener archivo: {e}")
+        return None
+
+
 # ── List & Delete ─────────────────────────────────────────────────────────────
 
 def list_uploads(sb: Client, table: str) -> list:
