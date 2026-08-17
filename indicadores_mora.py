@@ -1,5 +1,6 @@
 """Dashboard de Indicadores de Mora (cobranza / recuperación de cartera)."""
 
+import io
 import unicodedata
 import numpy as np
 import pandas as pd
@@ -426,26 +427,59 @@ def _grp_camp(df: pd.DataFrame, col_key: str, cols: dict, last4: list) -> pd.Dat
     return g
 
 
+def _safe_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip timezone info from datetime columns so openpyxl can write them."""
+    df = df.copy()
+    for col in df.select_dtypes(include=["datetimetz"]).columns:
+        df[col] = df[col].dt.tz_localize(None)
+    return df
+
+
+def _build_excel(sheets: dict) -> io.BytesIO:
+    """Write multiple DataFrames as named sheets into a single Excel BytesIO buffer."""
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        for sheet_name, df_sheet in sheets.items():
+            _safe_df(df_sheet).to_excel(writer, sheet_name=sheet_name[:31], index=False)
+    buf.seek(0)
+    return buf
+
+
 def _df_excel(df_show: pd.DataFrame, filename: str, btn_label: str = "📥 Descargar Excel",
               df_base: pd.DataFrame = None, base_label: str = None, base_filename: str = None,
-              show_table: bool = True):
-    """Muestra dataframe + botón de descarga Excel. Si se pasa df_base, agrega botón de base/detalle."""
-    import io
+              show_table: bool = True, extra_sheets: dict | None = None):
+    """Muestra dataframe + botón de descarga Excel.
+
+    Si extra_sheets es un dict {nombre_hoja: df}, el Excel descargado tendrá
+    'Resumen' como primera hoja seguida de las hojas adicionales (todo en un
+    solo archivo). Si df_base se pasa SIN extra_sheets, se genera un segundo
+    botón de descarga separado (comportamiento original).
+    """
     if show_table:
         st.dataframe(df_show, use_container_width=True, hide_index=True)
-    buf = io.BytesIO()
-    df_show.to_excel(buf, index=False, engine="openpyxl")
-    buf.seek(0)
+
+    # ── Multi-sheet download (extra_sheets provided) ──────────────────────────
+    if extra_sheets is not None:
+        sheets = {"Resumen": df_show} | extra_sheets
+        buf = _build_excel(sheets)
+        sheet_names = ", ".join(sheets.keys())
+        st.download_button(
+            label=btn_label,
+            data=buf,
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"dl_{filename}",
+            help=f"Hojas: {sheet_names}",
+        )
+        return
+
+    # ── Single-sheet download (original behavior) ─────────────────────────────
+    buf = _build_excel({"Hoja1": df_show})
 
     buf2 = None
     if df_base is not None:
         try:
-            _df_safe = df_base.copy()
-            for col in _df_safe.select_dtypes(include=["datetimetz"]).columns:
-                _df_safe[col] = _df_safe[col].dt.tz_localize(None)
-            buf2 = io.BytesIO()
-            _df_safe.to_excel(buf2, index=False, engine="openpyxl")
-            buf2.seek(0)
+            buf2 = _build_excel({"Hoja1": df_base})
         except Exception:
             buf2 = None
 
@@ -691,7 +725,14 @@ def tab_indicadores(df: pd.DataFrame):
                 tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
                 tabla_camp["PctRec"]   = tabla_camp["PctRec"].apply(lambda v: f"{v:.1f}%")
                 tabla_camp.columns = ["Campaña", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                _df_excel(tabla_camp, "recuperacion_por_campana.xlsx", show_table=False)
+                # Detalle: drop internal columns before exporting
+                _det_cols = [c for c in df.columns if c not in ("__saldo__", "__pago__", "__estatus__")]
+                _df_excel(
+                    tabla_camp, "recuperacion_por_campana.xlsx",
+                    btn_label="📥 Descargar Excel (Resumen + Detalle)",
+                    show_table=False,
+                    extra_sheets={"Detalle": df[_det_cols]},
+                )
 
             if last4 and camp_col_real:
                 _section("📅 Comparativo — Últimas 4 Campañas")
@@ -755,7 +796,13 @@ def tab_indicadores(df: pd.DataFrame):
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     ))
                     _chart_card(fig6)
-                _df_excel(pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx", show_table=False)
+                _det_cols_u4 = [c for c in df.columns if c not in ("__saldo__", "__pago__", "__estatus__")]
+                _df_excel(
+                    pd.DataFrame(rows), "kpis_ultimas4_campanas.xlsx",
+                    btn_label="📥 Descargar Excel (Resumen + Detalle)",
+                    show_table=False,
+                    extra_sheets={"Detalle": df[_det_cols_u4]},
+                )
 
         # ── Por Segmento ──────────────────────────────────────────────────────
         with sub[1]:
