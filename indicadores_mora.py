@@ -897,12 +897,26 @@ def tab_indicadores(df: pd.DataFrame):
                         _chart_card(_zona_asig_pago_chart(top15, "Top 15 Zonas — Mayor Recuperación"))
                     with z2:
                         _chart_card(_zona_asig_pago_chart(bot15, "Bottom 15 Zonas — Menor Recuperación"))
-                    # Descarga completa de TODAS las zonas — montos en pesos completos
-                    tabla_z_dl = g_zona_sorted[["zona", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
-                    tabla_z_dl["Asignado"] = tabla_z_dl["Asignado"].round(2)
-                    tabla_z_dl["Pagado"]   = tabla_z_dl["Pagado"].round(2)
-                    tabla_z_dl["PctRec"]   = tabla_z_dl["PctRec"].apply(lambda v: f"{v:.1f}%")
-                    tabla_z_dl.columns = ["Zona", "Cuentas", "Asignado ($)", "Recuperado ($)", "% Recuperación"]
+                    # Descarga: agrupado por Zona + Ruta + División con montos en pesos completos
+                    _z_ruta = cols.get("ruta")
+                    _z_div  = cols.get("division")
+                    _grp_keys = [c for c in [cols.get("zona"), _z_ruta, _z_div] if c and c in df.columns]
+                    _agg_z = {"Cuentas": (cols["zona"], "count"), "Asignado": ("__saldo__", "sum")}
+                    if "__pago__" in df.columns:
+                        _agg_z["Recuperado"] = ("__pago__", "sum")
+                    _g_zona_full = df.groupby(_grp_keys).agg(**_agg_z).reset_index()
+                    if "Recuperado" not in _g_zona_full.columns:
+                        _g_zona_full["Recuperado"] = 0
+                    _g_zona_full["% Recuperación"] = np.where(
+                        _g_zona_full["Asignado"] > 0,
+                        (_g_zona_full["Recuperado"] / _g_zona_full["Asignado"] * 100).round(1).astype(str) + "%",
+                        "0.0%",
+                    )
+                    _g_zona_full["Asignado"]   = _g_zona_full["Asignado"].round(2)
+                    _g_zona_full["Recuperado"] = _g_zona_full["Recuperado"].round(2)
+                    _col_rename = {cols.get("zona"): "Zona", _z_ruta: "Ruta", _z_div: "División"}
+                    _g_zona_full = _g_zona_full.rename(columns={k: v for k, v in _col_rename.items() if k})
+                    _g_zona_full = _g_zona_full.sort_values("Zona")
                     # Detalle: registros individuales con Ruta y División incluidos
                     _zona_det_cols = [cols.get("zona"), cols.get("ruta"), cols.get("division"),
                                       cols.get("campania"), cols.get("no_dama"), cols.get("saldo"), cols.get("pago")]
@@ -913,7 +927,7 @@ def tab_indicadores(df: pd.DataFrame):
                                         cols.get("no_dama"): "No. Dama", cols.get("saldo"): "Saldo ($)",
                                         cols.get("pago"): "Recuperado ($)"}
                     _zona_det = _zona_det.rename(columns={k: v for k, v in _zona_det_rename.items() if k})
-                    _df_excel(tabla_z_dl, "recuperacion_por_zona.xlsx", show_table=False,
+                    _df_excel(_g_zona_full, "recuperacion_por_zona.xlsx", show_table=False,
                               extra_sheets={"Detalle": _zona_det})
 
                 if last4 and camp_col_real:
