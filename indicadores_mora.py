@@ -695,7 +695,7 @@ def tab_indicadores(df: pd.DataFrame):
             g = _grp(df, "campania", cols)
             if g is not None:
                 g["campania"] = pd.to_numeric(g["campania"], errors="coerce").fillna(g["campania"])
-                g = g.sort_values("campania", key=lambda c: c.astype(str))
+                g = g.sort_values("campania", key=lambda c: pd.to_numeric(c, errors="coerce").fillna(c))
                 try:
                     g = g[pd.to_numeric(g["campania"], errors="coerce") >= 9]
                 except Exception:
@@ -719,7 +719,7 @@ def tab_indicadores(df: pd.DataFrame):
 
             g_all_camp = _grp(df, "campania", cols)
             if g_all_camp is not None:
-                g_all_camp = g_all_camp.sort_values("campania", key=lambda c: c.astype(str))
+                g_all_camp = g_all_camp.sort_values("campania", key=lambda c: pd.to_numeric(c, errors="coerce").fillna(c))
                 tabla_camp = g_all_camp[["campania", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
                 tabla_camp["Asignado"] = tabla_camp["Asignado"].apply(fmt_currency)
                 tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
@@ -897,13 +897,24 @@ def tab_indicadores(df: pd.DataFrame):
                         _chart_card(_zona_asig_pago_chart(top15, "Top 15 Zonas — Mayor Recuperación"))
                     with z2:
                         _chart_card(_zona_asig_pago_chart(bot15, "Bottom 15 Zonas — Menor Recuperación"))
-                    # Descarga completa de TODAS las zonas
+                    # Descarga completa de TODAS las zonas — montos en pesos completos
                     tabla_z_dl = g_zona_sorted[["zona", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
-                    tabla_z_dl["Asignado"] = tabla_z_dl["Asignado"].apply(fmt_currency)
-                    tabla_z_dl["Pagado"]   = tabla_z_dl["Pagado"].apply(fmt_currency)
+                    tabla_z_dl["Asignado"] = tabla_z_dl["Asignado"].round(2)
+                    tabla_z_dl["Pagado"]   = tabla_z_dl["Pagado"].round(2)
                     tabla_z_dl["PctRec"]   = tabla_z_dl["PctRec"].apply(lambda v: f"{v:.1f}%")
-                    tabla_z_dl.columns = ["Zona", "Cuentas", "Asignado", "Recuperado", "% Recuperación"]
-                    _df_excel(tabla_z_dl, "recuperacion_por_zona.xlsx", show_table=False)
+                    tabla_z_dl.columns = ["Zona", "Cuentas", "Asignado ($)", "Recuperado ($)", "% Recuperación"]
+                    # Detalle: registros individuales con Ruta y División incluidos
+                    _zona_det_cols = [cols.get("zona"), cols.get("ruta"), cols.get("division"),
+                                      cols.get("campania"), cols.get("no_dama"), cols.get("saldo"), cols.get("pago")]
+                    _zona_det_cols = [c for c in _zona_det_cols if c and c in df.columns]
+                    _zona_det = df[_zona_det_cols].copy()
+                    _zona_det_rename = {cols.get("zona"): "Zona", cols.get("ruta"): "Ruta",
+                                        cols.get("division"): "División", cols.get("campania"): "Campaña",
+                                        cols.get("no_dama"): "No. Dama", cols.get("saldo"): "Saldo ($)",
+                                        cols.get("pago"): "Recuperado ($)"}
+                    _zona_det = _zona_det.rename(columns={k: v for k, v in _zona_det_rename.items() if k})
+                    _df_excel(tabla_z_dl, "recuperacion_por_zona.xlsx", show_table=False,
+                              extra_sheets={"Detalle": _zona_det})
 
                 if last4 and camp_col_real:
                     _section("📅 Comparativo — Recuperación por Segmento × Últimas 4 Campañas")
