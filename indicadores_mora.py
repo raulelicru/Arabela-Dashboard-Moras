@@ -695,7 +695,7 @@ def tab_indicadores(df: pd.DataFrame):
             g = _grp(df, "campania", cols)
             if g is not None:
                 g["campania"] = pd.to_numeric(g["campania"], errors="coerce").fillna(g["campania"])
-                g = g.sort_values("campania", key=lambda c: c.astype(str))
+                g = g.sort_values("campania", key=lambda c: pd.to_numeric(c, errors="coerce").fillna(c))
                 try:
                     g = g[pd.to_numeric(g["campania"], errors="coerce") >= 9]
                 except Exception:
@@ -719,7 +719,7 @@ def tab_indicadores(df: pd.DataFrame):
 
             g_all_camp = _grp(df, "campania", cols)
             if g_all_camp is not None:
-                g_all_camp = g_all_camp.sort_values("campania", key=lambda c: c.astype(str))
+                g_all_camp = g_all_camp.sort_values("campania", key=lambda c: pd.to_numeric(c, errors="coerce").fillna(c))
                 tabla_camp = g_all_camp[["campania", "Cuentas", "Asignado", "Pagado", "PctRec"]].copy()
                 tabla_camp["Asignado"] = tabla_camp["Asignado"].apply(fmt_currency)
                 tabla_camp["Pagado"]   = tabla_camp["Pagado"].apply(fmt_currency)
