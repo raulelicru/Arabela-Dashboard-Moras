@@ -119,6 +119,7 @@ _USERS_FALLBACK = {
     "Lourdes Martinez": "lourdes.martinez@arabela.com",
     "Eduardo Perez":    "eduardo.perez@arabela.com",
     "Jenifer Cravioto": "jenifer.cravioto@arabela.com",
+    "Edson Gonzales":   "edson.gonzales@arabela.com",
 }
 
 _ADMINS_FALLBACK = {
